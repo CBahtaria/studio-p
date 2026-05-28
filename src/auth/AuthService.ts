@@ -30,7 +30,7 @@ class AuthService {
   private async loadFromSession(): Promise<void> {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
-      this.currentProfile = await this.fetchProfile(session.user.id);
+      this.currentProfile = await this.fetchProfile(session.user.id, session.user);
     }
   }
 
@@ -187,8 +187,28 @@ class AuthService {
           const profile = await this.fetchProfile(session.user.id, session.user);
           this.currentProfile = profile;
           cb(profile);
-        } catch {
-          cb(null);
+        } catch (err) {
+          logger.error('AuthService', 'fetchProfile failed — using session fallback', { err });
+          // Never lock out an authenticated user. Build a minimal profile
+          // from the session so they always reach the dashboard.
+          const u = session.user;
+          const email = u.email ?? '';
+          const fallback: UserProfile = {
+            id: u.id,
+            name: (u.user_metadata?.full_name as string) || (u.user_metadata?.name as string) || email.split('@')[0] || 'Member',
+            email,
+            avatar: (u.user_metadata?.avatar_url as string) ?? undefined,
+            role: this.resolveRole(email),
+            provider: (u.app_metadata?.provider as UserProfile['provider']) ?? 'email',
+            memberTier: 'bronze',
+            visitCount: 0,
+            uploadCount: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            emailVerified: !!u.email_confirmed_at,
+          };
+          this.currentProfile = fallback;
+          cb(fallback);
         }
       } else {
         this.currentProfile = null;
@@ -208,9 +228,12 @@ class AuthService {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
-    if (!error && data) return rowToProfile(data as ProfileRow);
+    if (!error && data) {
+      try { return rowToProfile(data as ProfileRow); } catch { /* fall through to rebuild */ }
+    }
+    if (error) logger.warn('AuthService', 'profiles SELECT failed', { error: error.message });
 
     // No profile row — use pre-resolved user when available (avoids calling
     // getUser() inside an onAuthStateChange callback which would deadlock).
