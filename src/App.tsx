@@ -135,40 +135,27 @@ function Dock({ user, page, onNav }: { user: UserProfile | null; page: AppPage; 
 
 // ── Root App ─────────────────────────────────────
 function App() {
-  const [user, setUser] = useState<UserProfile | null>(() => authService.getProfile());
-  const [page, setPage] = useState<AppPage>(() => {
-    const p = authService.getProfile();
-    if (!p) return 'landing';
-    return p.role === 'admin' ? 'admin' : p.role === 'editor' ? 'editor' : 'viewer';
-  });
+  // Auth state — never initialised from sync cache to avoid stale-data flash
+  const [user, setUser]     = useState<UserProfile | null>(null);
+  const [page, setPage]     = useState<AppPage>('landing');
   const [authOpen, setAuthOpen] = useState(false);
   const [authError, setAuthError] = useState('');
-  // True while PKCE code exchange is in flight after OAuth redirect.
-  // We check sessionStorage because Supabase removes ?code= from the URL
-  // before firing any onAuthStateChange events, making URL checks unreliable.
-  const [loading, setLoading] = useState(() =>
-    new URLSearchParams(window.location.search).has('code') ||
-    sessionStorage.getItem('oauth_pending') === '1'
-  );
 
-  // Safety net: if PKCE exchange or profile fetch hangs, clear spinner after 8 s.
-  // Also recovers if onAuthStateChange never fired but loadFromSession succeeded.
+  // Always start loading. We don't know auth state until Supabase fires its first
+  // onAuthStateChange event. This prevents any flash of the wrong view.
+  const [loading, setLoading] = useState(true);
+
+  // Hard-stop spinner after 10 s in case Supabase never fires.
+  // Does NOT attempt to read a cached profile — that was the "force display" bug.
   useEffect(() => {
-    if (!loading) return;
     const t = setTimeout(() => {
       sessionStorage.removeItem('oauth_pending');
-      const cached = authService.getProfile();
-      if (cached) {
-        setUser(cached);
-        setPage(cached.role === 'admin' ? 'admin' : cached.role === 'editor' ? 'editor' : 'viewer');
-      }
       setLoading(false);
-      window.history.replaceState({}, '', '/');
-    }, 8000);
+    }, 10000);
     return () => clearTimeout(t);
-  }, [loading]);
+  }, []);
 
-  // Apply OS body classes + detect OAuth callback errors
+  // OS body classes + OAuth callback error detection
   useEffect(() => {
     document.body.classList.add('os-' + osInfo.os);
     if (osInfo.mobile) document.body.classList.add('is-mobile');
@@ -176,7 +163,7 @@ function App() {
     document.documentElement.style.setProperty('--bar-h', osInfo.chromeHeight + 'px');
     logger.info('App', 'Studio P initialised', { os: osInfo.os, mobile: osInfo.mobile });
 
-    // Supabase redirects back to /auth/callback?error=...#error=... on OAuth failure
+    // Supabase redirects to /auth/callback?error=...#error=... on OAuth failure
     const params = new URLSearchParams(window.location.search);
     const hash   = new URLSearchParams(window.location.hash.slice(1));
     const errDesc = params.get('error_description') ?? hash.get('error_description');
@@ -184,13 +171,15 @@ function App() {
       const msg = decodeURIComponent(errDesc).replace(/\+/g, ' ');
       logger.warn('App', 'OAuth callback error', { msg });
       window.history.replaceState({}, '', '/');
+      sessionStorage.removeItem('oauth_pending');
       setAuthError(`Sign-in failed: ${msg}. Please try again.`);
       setAuthOpen(true);
       setLoading(false);
     }
   }, []);
 
-  // Subscribe to Supabase auth state — fires on INITIAL_SESSION and after PKCE exchange
+  // Single source of truth for auth state.
+  // loading is cleared here — never from stale cache.
   useEffect(() => {
     const unsub = authService.onAuthStateChange((profile) => {
       if (profile) {
@@ -198,14 +187,14 @@ function App() {
         setUser(profile);
         setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
         setAuthOpen(false);
-        logger.info('App', 'Auth state: signed in', { name: profile.name, role: profile.role });
+        logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role });
         setLoading(false);
       } else {
         setUser(null);
-        setPage('landing');
-        // Keep spinner if an OAuth redirect is still in progress.
-        // Supabase removes ?code= before events fire, so we track state in sessionStorage.
+        // Only resolve to landing + clear spinner if we are NOT mid-OAuth.
+        // oauth_pending means the PKCE exchange is still in flight — keep spinner.
         if (sessionStorage.getItem('oauth_pending') !== '1') {
+          setPage('landing');
           setLoading(false);
         }
       }
@@ -213,15 +202,18 @@ function App() {
     return unsub;
   }, []);
 
+  // Called by AuthModal after email/password or social sign-in resolves locally
   const handleAuth = (profile: UserProfile) => {
+    sessionStorage.removeItem('oauth_pending');
     setUser(profile);
     setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
     setAuthOpen(false);
-    logger.info('App', 'User signed in', { name: profile.name, role: profile.role });
+    logger.info('App', 'User signed in via modal', { name: profile.name, role: profile.role });
   };
 
   const handleSignOut = async () => {
     await authService.signOut();
+    sessionStorage.removeItem('oauth_pending');
     setUser(null);
     setPage('landing');
     logger.info('App', 'User signed out');
@@ -230,11 +222,16 @@ function App() {
   const padTop = osInfo.mobile ? 0 : osInfo.chromeHeight;
   const padBot = 80;
 
+  // Spinner — shown while Supabase resolves the initial auth state.
+  // Displays "SIGNING IN…" only when an OAuth redirect is in progress.
   if (loading) {
+    const isOAuth = sessionStorage.getItem('oauth_pending') === '1';
     return (
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', flexDirection: 'column', gap: 16 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 60, color: 'var(--brass)' }}>P</div>
-        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.3em', color: 'var(--stone)' }}>SIGNING IN…</div>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 60, color: 'var(--brass)', animation: 'pulse 2s ease infinite' }}>P</div>
+        {isOAuth && (
+          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.3em', color: 'var(--stone)' }}>SIGNING IN…</div>
+        )}
       </div>
     );
   }
