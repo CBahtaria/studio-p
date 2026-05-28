@@ -50,7 +50,7 @@ BEGIN
     v_name,
     v_email,
     v_avatar,
-    COALESCE(NEW.app_metadata->>'provider', 'email'),
+    COALESCE(NEW.raw_app_meta_data->>'provider', 'email'),
     v_role,
     'bronze'
   )
@@ -85,7 +85,7 @@ SELECT
   ),
   u.email,
   u.raw_user_meta_data->>'avatar_url',
-  COALESCE(u.app_metadata->>'provider', 'email'),
+  COALESCE(u.raw_app_meta_data->>'provider', 'email'),
   'admin',
   'bronze'
 FROM auth.users u
