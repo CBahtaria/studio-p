@@ -10,7 +10,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+major_version = 17
 
 [studio]
 enabled = true
@@ -41,14 +41,13 @@ refresh_token_reuse_interval = 10
 enable_signup = true
 enable_anonymous_sign_ins = false
 minimum_password_length = 8
-password_requirements = "lower_upper_digits"
+password_requirements = "lower_upper_letters_digits"
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true
 secure_password_change = true
-template_dir = "./supabase/email-templates"
 
 [auth.sms]
 enable_signup = false
