@@ -142,14 +142,27 @@ function App() {
     return p.role === 'admin' ? 'admin' : p.role === 'editor' ? 'editor' : 'viewer';
   });
   const [authOpen, setAuthOpen] = useState(false);
+  const [authError, setAuthError] = useState('');
 
-  // Apply OS body classes
+  // Apply OS body classes + detect OAuth callback errors
   useEffect(() => {
     document.body.classList.add('os-' + osInfo.os);
     if (osInfo.mobile) document.body.classList.add('is-mobile');
     document.body.classList.add('has-dock');
     document.documentElement.style.setProperty('--bar-h', osInfo.chromeHeight + 'px');
     logger.info('App', 'Studio P initialised', { os: osInfo.os, mobile: osInfo.mobile });
+
+    // Supabase redirects back to /auth/callback?error=...#error=... on OAuth failure
+    const params = new URLSearchParams(window.location.search);
+    const hash   = new URLSearchParams(window.location.hash.slice(1));
+    const errDesc = params.get('error_description') ?? hash.get('error_description');
+    if (errDesc) {
+      const msg = decodeURIComponent(errDesc).replace(/\+/g, ' ');
+      logger.warn('App', 'OAuth callback error', { msg });
+      window.history.replaceState({}, '', '/');
+      setAuthError(`Sign-in failed: ${msg}. Please try again.`);
+      setAuthOpen(true);
+    }
   }, []);
 
   const handleAuth = (profile: UserProfile) => {
@@ -183,7 +196,8 @@ function App() {
       {authOpen && (
         <AuthModal
           onSuccess={handleAuth}
-          onClose={() => setAuthOpen(false)}
+          onClose={() => { setAuthOpen(false); setAuthError(''); }}
+          initialError={authError || undefined}
         />
       )}
 

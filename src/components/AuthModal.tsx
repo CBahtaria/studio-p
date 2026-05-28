@@ -21,6 +21,7 @@ type Step = 'form' | 'loading' | 'verify-email' | 'reset-sent' | 'profile-comple
 interface AuthModalProps {
   onSuccess: (profile: UserProfile) => void;
   onClose: () => void;
+  initialError?: string;
 }
 
 const isDemoEnabled = import.meta.env.VITE_ENABLE_DEMO_MODE === 'true';
@@ -267,7 +268,7 @@ function DemoForm({ onSuccess }: { onSuccess: (profile: UserProfile) => void }) 
 }
 
 // ── Root AuthModal ──────────────────────────────
-export function AuthModal({ onSuccess, onClose }: AuthModalProps) {
+export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) {
   const tabs: Tab[] = isDemoEnabled ? ['signin', 'signup', 'demo'] : ['signin', 'signup'];
   const [tab, setTab] = useState<Tab>('signin');
   const [step, setStep] = useState<Step>('form');
@@ -340,6 +341,11 @@ export function AuthModal({ onSuccess, onClose }: AuthModalProps) {
 
         {/* Body */}
         <div style={{ padding: '22px 28px 28px' }}>
+          {initialError && step === 'form' && (
+            <div style={{ padding: '10px 14px', background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.3)', borderRadius: 8, fontSize: 12, color: '#f87171', marginBottom: 16, lineHeight: 1.5 }}>
+              {initialError}
+            </div>
+          )}
           {step === 'form' && tab === 'signin' && (
             <SignInForm
               onSuccess={onSuccess}
