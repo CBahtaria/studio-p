@@ -195,6 +195,11 @@ class AuthService {
     return () => subscription.unsubscribe();
   }
 
+  private resolveRole(email: string): UserProfile['role'] {
+    const ADMIN_EMAILS = ['charleskris9@gmail.com'];
+    return ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'viewer';
+  }
+
   private async fetchProfile(userId: string): Promise<UserProfile> {
     const { data, error } = await supabase
       .from('profiles')
@@ -214,12 +219,15 @@ class AuthService {
       'Member'
     ).slice(0, 60) || 'Member';
 
+    const email = user?.email ?? '';
+    const role  = this.resolveRole(email);
+
     const fallback: UserProfile = {
       id: userId,
       name,
-      email: user?.email ?? '',
+      email,
       avatar: (meta.avatar_url as string) ?? undefined,
-      role: 'viewer',
+      role,
       provider: (user?.app_metadata?.provider as UserProfile['provider']) ?? 'email',
       memberTier: 'bronze',
       visitCount: 0,
@@ -236,7 +244,7 @@ class AuthService {
       email: fallback.email,
       avatar: fallback.avatar ?? null,
       provider: fallback.provider,
-      role: 'viewer',
+      role,
       member_tier: 'bronze',
     }, { onConflict: 'id', ignoreDuplicates: true });
 
