@@ -1,5 +1,7 @@
 // Vercel Edge Middleware — uses Web Standard APIs (no next/server)
-// Rate limits auth endpoints (5/15min) and API routes (60/1min)
+// Rate limits API routes (60/1min). Auth paths are intentionally excluded:
+// /auth/callback is an OAuth redirect destination — intercepting it prevents
+// the Vite SPA from loading and breaks the PKCE code exchange.
 
 const hits = new Map<string, number[]>();
 
@@ -39,18 +41,10 @@ function tooMany(retryAfter: number, limit: number): Response {
   );
 }
 
-export default function middleware(req: Request): Response {
+export default function middleware(req: Request): Response | undefined {
   const url = new URL(req.url);
   const { pathname } = url;
   const ip = getIP(req);
-
-  if (pathname.startsWith('/auth/') || pathname.includes('signIn') || pathname.includes('signUp')) {
-    const { limited, remaining } = isRateLimited(`auth:${ip}`, 5, 15 * 60 * 1000);
-    if (limited) return tooMany(900, 5);
-    const res = new Response(null, { status: 200 });
-    res.headers.set('X-RateLimit-Remaining', String(remaining));
-    return res;
-  }
 
   if (pathname.startsWith('/api/')) {
     const { limited, remaining } = isRateLimited(`api:${ip}`, 60, 60 * 1000);
@@ -59,10 +53,8 @@ export default function middleware(req: Request): Response {
     res.headers.set('X-RateLimit-Remaining', String(remaining));
     return res;
   }
-
-  return new Response(null, { status: 200 });
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/auth/:path*'],
+  matcher: ['/api/:path*'],
 };

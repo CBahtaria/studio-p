@@ -47,6 +47,7 @@ function SignInForm({ onSuccess, onForgotPassword }: {
 }) {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | ''>('');
   const [pendingEmail, setPendingEmail] = useState('');
   const [step, setStep] = useState<'form' | 'verify'>('form');
 
@@ -118,18 +119,55 @@ function SignInForm({ onSuccess, onForgotPassword }: {
         <div style={{ flex: 1, height: 1, background: 'var(--bord)' }}/>
       </div>
 
-      <button type="button" onClick={() => authService.signInWithGoogle()} style={{
-        width: '100%', background: 'var(--ink3)', border: '1px solid var(--bord2)', color: 'var(--parch2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        padding: '12px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 11, cursor: 'pointer',
-      }}>
-        <svg width="18" height="18" viewBox="0 0 48 48">
-          <path fill="#EA4335" d="M24 9.5c3.6 0 6.5 1.4 8.8 3.7l6.6-6.6C35.2 2.4 30 0 24 0 14.6 0 6.6 5.4 2.4 13.2l7.7 6C12.1 13 17.6 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.5 24.5c0-1.7-.1-3.3-.4-4.8H24v9.1h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.3z"/>
-          <path fill="#FBBC05" d="M10.1 28.5A14.5 14.5 0 019.5 24c0-1.6.3-3.1.6-4.5l-7.7-6A23.9 23.9 0 000 24c0 3.8.9 7.5 2.4 10.8l7.7-6.3z"/>
-          <path fill="#34A853" d="M24 48c6 0 11.1-2 14.8-5.4l-7.5-5.8c-2 1.4-4.6 2.2-7.3 2.2-6.4 0-11.8-4.3-13.9-10.2l-7.7 6C6.6 42.6 14.6 48 24 48z"/>
-        </svg>
-        Continue with Google
+      <button type="button"
+        disabled={!!oauthLoading}
+        onClick={async () => {
+          setOauthLoading('google');
+          setApiError('');
+          try { await authService.signInWithGoogle(); }
+          catch (e) { setApiError(e instanceof Error ? e.message : 'Google sign-in failed'); setOauthLoading(''); }
+        }}
+        style={{
+          width: '100%', background: 'var(--ink3)', border: '1px solid var(--bord2)', color: 'var(--parch2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          padding: '12px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 11,
+          cursor: oauthLoading ? 'not-allowed' : 'pointer', opacity: oauthLoading && oauthLoading !== 'google' ? 0.5 : 1,
+        }}>
+        {oauthLoading === 'google' ? 'Redirecting…' : (
+          <>
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.6 0 6.5 1.4 8.8 3.7l6.6-6.6C35.2 2.4 30 0 24 0 14.6 0 6.6 5.4 2.4 13.2l7.7 6C12.1 13 17.6 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.5 24.5c0-1.7-.1-3.3-.4-4.8H24v9.1h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.3z"/>
+              <path fill="#FBBC05" d="M10.1 28.5A14.5 14.5 0 019.5 24c0-1.6.3-3.1.6-4.5l-7.7-6A23.9 23.9 0 000 24c0 3.8.9 7.5 2.4 10.8l7.7-6.3z"/>
+              <path fill="#34A853" d="M24 48c6 0 11.1-2 14.8-5.4l-7.5-5.8c-2 1.4-4.6 2.2-7.3 2.2-6.4 0-11.8-4.3-13.9-10.2l-7.7 6C6.6 42.6 14.6 48 24 48z"/>
+            </svg>
+            Continue with Google
+          </>
+        )}
+      </button>
+
+      <button type="button"
+        disabled={!!oauthLoading}
+        onClick={async () => {
+          setOauthLoading('apple');
+          setApiError('');
+          try { await authService.signInWithApple(); }
+          catch (e) { setApiError(e instanceof Error ? e.message : 'Apple sign-in failed'); setOauthLoading(''); }
+        }}
+        style={{
+          width: '100%', background: 'var(--ink3)', border: '1px solid var(--bord2)', color: 'var(--parch2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          padding: '12px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 11,
+          cursor: oauthLoading ? 'not-allowed' : 'pointer', opacity: oauthLoading && oauthLoading !== 'apple' ? 0.5 : 1,
+        }}>
+        {oauthLoading === 'apple' ? 'Redirecting…' : (
+          <>
+            <svg width="17" height="20" viewBox="0 0 814 1000" fill="currentColor">
+              <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.8-155.5-127.4C46 790.8 0 663.8 0 541.3c0-207.6 134.7-317.3 267.7-317.3 72.9 0 133.9 47.9 178.6 47.9 42.3 0 112.9-50.4 190.9-50.4 30.6 0 110.8 2.6 168.4 81.2zm-126.4-98.4c31.4-37.4 54.4-89.5 54.4-141.5 0-7.1-.6-14.3-1.9-20.1-51.6 2-112.3 34.4-148.8 75.8-28.5 32.7-55.8 84.7-55.8 137.4 0 7.7 1.3 15.5 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 46.4 0 102.5-30.7 136.6-70z"/>
+            </svg>
+            Continue with Apple
+          </>
+        )}
       </button>
     </form>
   );
