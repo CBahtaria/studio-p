@@ -1,0 +1,25 @@
+{
+  "name": "Studio P",
+  "url": "https://studio-p.vercel.app",
+  "width": 1280,
+  "height": 800,
+  "resizable": true,
+  "title": "Studio P — Barbershop",
+  "identifier": "sz.studiop.app",
+  "icon": "assets/icon.png",
+  "always_on_top": false,
+  "fullscreen": false,
+  "targets": ["macos", "windows", "linux"],
+  "inject_js": [
+    "// Hide Mac-OS bar on Pake — Pake provides its own native chrome",
+    "document.getElementById('mac-bar') && (document.getElementById('mac-bar').style.display = 'none');"
+  ],
+  "user_agent": "StudioP/1.0 Pake/3.0",
+  "safe_domain_list": [
+    "studio-p.vercel.app",
+    "studiop.sz",
+    "supabase.co",
+    "accounts.google.com",
+    "appleid.apple.com"
+  ]
+}
