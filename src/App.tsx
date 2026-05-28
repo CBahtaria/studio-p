@@ -146,10 +146,16 @@ function App() {
   // True only while PKCE code exchange is in flight after OAuth redirect
   const [loading, setLoading] = useState(() => new URLSearchParams(window.location.search).has('code'));
 
-  // Safety net: if PKCE exchange or profile fetch hangs, clear spinner after 8 s
+  // Safety net: if PKCE exchange or profile fetch hangs, clear spinner after 8 s.
+  // Also recovers if onAuthStateChange never fired but loadFromSession succeeded.
   useEffect(() => {
     if (!loading) return;
     const t = setTimeout(() => {
+      const cached = authService.getProfile();
+      if (cached) {
+        setUser(cached);
+        setPage(cached.role === 'admin' ? 'admin' : cached.role === 'editor' ? 'editor' : 'viewer');
+      }
       setLoading(false);
       window.history.replaceState({}, '', '/');
     }, 8000);

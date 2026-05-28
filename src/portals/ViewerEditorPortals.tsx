@@ -1,6 +1,5 @@
 // ════════════════════════════════════════════════
-// STUDIO P — ViewerPortal (portals/ViewerPortal.tsx)
-// Member booking flow with parallel agent validation
+// STUDIO P — ViewerPortal + EditorPortal
 // ════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
@@ -9,6 +8,16 @@ import { bookingService, SERVICES } from '@/services/BookingService';
 import { monitor } from '@/core/monitor';
 import { AgentPanel } from '@/components/AgentPanel';
 import { PhotoUpload } from '@/components/PhotoUpload';
+
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+
+const HERO_IMGS = [
+  'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=1200&q=70',
+  'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=1200&q=70',
+  'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=1200&q=70',
+];
+
+// ── Viewer Portal ────────────────────────────────
 
 interface ViewerPortalProps {
   user: UserProfile;
@@ -19,12 +28,13 @@ type BookStep = 'select' | 'validating' | 'done';
 
 export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
   const [section, setSection] = useState<'home' | 'book' | 'history'>('home');
-  const [svc, setSvc] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [svc, setSvc]     = useState('');
+  const [date, setDate]   = useState('');
+  const [time, setTime]   = useState('');
   const [agents, setAgents] = useState<Agent[]>([]);
   const [result, setResult] = useState<OrchestrationResult | null>(null);
-  const [step, setStep] = useState<BookStep>('select');
+  const [step, setStep]   = useState<BookStep>('select');
+  const [bgIdx] = useState(() => Math.floor(Math.random() * HERO_IMGS.length));
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--view-bg)');
@@ -53,41 +63,50 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
 
   const reset = () => { setSvc(''); setDate(''); setTime(''); setAgents([]); setResult(null); setStep('select'); };
 
+  const tierLabel = user.memberTier
+    ? user.memberTier.charAt(0).toUpperCase() + user.memberTier.slice(1)
+    : 'Bronze';
+  const firstName = user.name.split(' ')[0];
+
   return (
     <div style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--view-bg)', animation: 'portIn .32s cubic-bezier(.16,1,.3,1)' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 20px' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div>
-            <div className="port-ey">Member Portal</div>
-            <h1 className="port-title">
-              {user.name.split(' ')[0]}'s Space
-            </h1>
+      {/* Hero */}
+      <div style={{ position: 'relative', minHeight: '40vh', display: 'flex', alignItems: 'flex-end', overflow: 'hidden', borderBottom: '1px solid var(--view-b)' }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${HERO_IMGS[bgIdx]})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: .18, transition: 'opacity .5s' }}/>
+        <div style={{ position: 'absolute', inset: '-50%', backgroundImage: GRAIN_BG, backgroundSize: '200px 200px', animation: 'grain 4s steps(2) infinite', opacity: .6, pointerEvents: 'none' }}/>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--view-bg) 0%, transparent 60%)', pointerEvents: 'none' }}/>
+        <div style={{ position: 'relative', padding: '0 28px 36px', width: '100%', maxWidth: 700, margin: '0 auto' }}>
+          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.45em', color: 'var(--brass)', marginBottom: 14, textTransform: 'uppercase' }}>Member Portal · Studio P</div>
+          <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(3rem,8vw,6rem)', fontWeight: 700, lineHeight: .88, color: 'var(--view-t)' }}>
+            {firstName}'s<br/>
+            <em style={{ fontStyle: 'italic', color: 'var(--brass)' }}>Space.</em>
+          </h1>
+          <div style={{ display: 'flex', gap: 28, marginTop: 18 }}>
+            {[{ v: String(user.visitCount || 0), l: 'Visits' }, { v: tierLabel, l: 'Tier' }].map(s => (
+              <div key={s.l}>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.6rem', color: 'var(--view-a)', lineHeight: 1 }}>{s.v}</div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.2em', color: 'var(--stone)', marginTop: 2, textTransform: 'uppercase' }}>{s.l}</div>
+              </div>
+            ))}
+            <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--view-b)', color: 'var(--view-m)', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer', alignSelf: 'flex-end' }}>
+              ← Home
+            </button>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--view-b)', color: 'var(--view-m)', borderRadius: 8, padding: '6px 12px', fontSize: 11, minHeight: 'unset' }}>
-            ← Home
-          </button>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="sg">
-          {[{ v: '3', l: 'Visits' }, { v: 'Gold', l: 'Tier' }, { v: 'E300', l: 'Total Spend' }].map(s => (
-            <div key={s.l} className="sc">
-              <div className="sc-v">{s.v}</div>
-              <div className="sc-l">{s.l}</div>
-            </div>
-          ))}
-        </div>
+      {/* Content */}
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '28px 20px' }}>
 
         {/* Nav */}
-        <div style={{ display: 'flex', gap: 2, marginBottom: 20, background: 'var(--view-s)', borderRadius: 8, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 2, marginBottom: 24, background: 'var(--view-s)', borderRadius: 8, padding: 3 }}>
           {[['home', '✨ Dashboard'], ['book', '📅 Book'], ['history', '📋 History']].map(([id, label]) => (
             <button key={id} onClick={() => setSection(id as typeof section)} style={{
               flex: 1, background: section === id ? 'var(--view-b)' : 'transparent',
               border: 'none', color: section === id ? 'var(--view-a)' : 'var(--view-m)',
-              borderRadius: 6, padding: '8px 12px', fontSize: 11,
-              fontFamily: 'DM Mono, monospace', letterSpacing: '.08em',
+              borderRadius: 6, padding: '9px 12px', fontSize: 10,
+              fontFamily: 'DM Mono, monospace', letterSpacing: '.1em',
               cursor: 'pointer', minHeight: 'unset', transition: 'all .15s',
             }}>{label}</button>
           ))}
@@ -109,17 +128,27 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
                 </div>
               </div>
             </div>
-            <div className="pc">
-              <div className="pc-h"><span className="pc-t">Member Perks</span></div>
-              <div className="pc-b">
-                {['10% off every 5th visit', 'Priority booking slots', 'Early access to new services'].map(p => (
-                  <div key={p} style={{ display: 'flex', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--port-bord)', fontSize: 12, color: 'var(--port-t)' }}>
-                    <span style={{ color: 'var(--view-a)' }}>✓</span>
-                    {p}
+
+            <div style={{ borderTop: '1px solid var(--view-b)', paddingTop: 24, marginBottom: 20 }}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--brass)', marginBottom: 8, textTransform: 'uppercase' }}>Member Perks</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+                {[
+                  { icon: '✦', title: 'Loyalty Discount', desc: '10% off every 5th visit' },
+                  { icon: '⚡', title: 'Priority Booking', desc: 'First access to new slots' },
+                  { icon: '✧', title: 'Early Access', desc: 'New services before anyone else' },
+                ].map(p => (
+                  <div key={p.title} style={{ background: 'var(--view-s)', border: '1px solid var(--view-b)', borderRadius: 8, padding: '16px 14px', transition: 'border-color .2s' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--view-a)')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--view-b)')}
+                  >
+                    <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, color: 'var(--view-a)', marginBottom: 6 }}>{p.icon}</div>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.12em', color: 'var(--view-t)', marginBottom: 4, textTransform: 'uppercase' }}>{p.title}</div>
+                    <div style={{ fontSize: 11, color: 'var(--view-m)', lineHeight: 1.5 }}>{p.desc}</div>
                   </div>
                 ))}
               </div>
             </div>
+
             <PhotoUpload userId={user.id} />
           </div>
         )}
@@ -129,16 +158,33 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
           <div>
             {step === 'select' && (
               <div>
+                {/* Service grid — landing page style */}
+                <div style={{ borderTop: '1px solid var(--view-b)', paddingTop: 20, marginBottom: 20 }}>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>The Menu</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1, background: 'var(--view-b)', marginBottom: 20 }}>
+                    {SERVICES.map(s => (
+                      <button key={s.code} onClick={() => setSvc(s.name)} style={{
+                        background: svc === s.name ? 'rgba(167,139,250,.1)' : 'var(--view-bg)',
+                        border: 'none',
+                        borderLeft: svc === s.name ? '2px solid var(--view-a)' : '2px solid transparent',
+                        padding: '18px 16px',
+                        textAlign: 'left', cursor: 'pointer',
+                        transition: 'background .2s',
+                      }}>
+                        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, letterSpacing: '.2em', color: svc === s.name ? 'var(--view-a)' : 'var(--brass)', marginBottom: 6, textTransform: 'uppercase' }}>{s.tag}</div>
+                        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.15rem', fontWeight: 600, color: 'var(--view-t)', marginBottom: 4 }}>{s.name}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
+                          <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: svc === s.name ? 'var(--view-a)' : 'var(--brass)', fontWeight: 600 }}>{s.price}</span>
+                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--stone)' }}>{s.duration}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="pc">
-                  <div className="pc-h"><span className="pc-t">Book Your Chair</span></div>
+                  <div className="pc-h"><span className="pc-t">Date & Time</span></div>
                   <div className="pc-b" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div>
-                      <label style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.2em', color: 'var(--port-m)', display: 'block', marginBottom: 6 }}>SERVICE</label>
-                      <select className="port-input" value={svc} onChange={e => setSvc(e.target.value)}>
-                        <option value="">Select service…</option>
-                        {SERVICES.map(s => <option key={s.code} value={s.name}>{s.name} — {s.price} ({s.duration})</option>)}
-                      </select>
-                    </div>
                     <div>
                       <label style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.2em', color: 'var(--port-m)', display: 'block', marginBottom: 6 }}>DATE</label>
                       <input className="port-input" type="date" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]}/>
@@ -149,7 +195,8 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
                     </div>
                   </div>
                 </div>
-                <button className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', opacity: svc && date && time ? 1 : .5 }}
+
+                <button className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', opacity: svc && date && time ? 1 : .45 }}
                   onClick={bookNow} disabled={!svc || !date || !time}>
                   Run Parallel Validation →
                 </button>
@@ -184,27 +231,29 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
 
         {/* History */}
         {section === 'history' && (
-          <div className="pc">
-            <div className="pc-h"><span className="pc-t">Past Visits</span></div>
-            <div style={{ padding: '4px 18px' }}>
-              {[
-                { service: 'Signature Fade', date: 'May 10, 2025', price: 'E120', status: 'completed' },
-                { service: 'Taper & Define', date: 'Apr 03, 2025', price: 'E100', status: 'completed' },
-                { service: 'Full Package',   date: 'Mar 01, 2025', price: 'E220', status: 'completed' },
-              ].map((b, i) => (
-                <div key={i} className="bki">
-                  <div className="bkav" style={{ background: 'var(--view-b)' }}>{i + 1}</div>
-                  <div style={{ flex: 1 }}>
-                    <div className="bkn">{b.service}</div>
-                    <div className="bkm">{b.date}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 15, color: 'var(--view-a)' }}>{b.price}</div>
-                    <span className={`bkst ${b.status}`}>{b.status}</span>
-                  </div>
+          <div>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--brass)', marginBottom: 20, textTransform: 'uppercase' }}>Past Visits</div>
+            {[
+              { service: 'Signature Fade', date: 'May 10, 2025', price: 'E120', status: 'completed', barber: 'P. Dlamini' },
+              { service: 'Taper & Define', date: 'Apr 03, 2025', price: 'E100', status: 'completed', barber: 'P. Dlamini' },
+              { service: 'Full Package',   date: 'Mar 01, 2025', price: 'E220', status: 'completed', barber: 'P. Dlamini' },
+            ].map((b, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 16,
+                padding: '18px 0',
+                borderBottom: '1px solid var(--view-b)',
+              }}>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--view-b)', lineHeight: 1, width: 32, textAlign: 'center' }}>{String(i + 1).padStart(2, '0')}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--view-t)' }}>{b.service}</div>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--view-m)', marginTop: 3, letterSpacing: '.06em' }}>{b.barber} · {b.date}</div>
                 </div>
-              ))}
-            </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: 'var(--brass)', fontWeight: 600 }}>{b.price}</div>
+                  <span className={`bkst ${b.status}`}>{b.status}</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -213,9 +262,7 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
   );
 }
 
-// ════════════════════════════════════════════════
-// STUDIO P — EditorPortal (portals/EditorPortal.tsx)
-// ════════════════════════════════════════════════
+// ── Editor Portal ────────────────────────────────
 
 interface EditorPortalProps {
   user: UserProfile;
@@ -227,6 +274,7 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
     { id: 'p1', author: user.name, text: 'Fresh fade of the day. Precision work.', likes: 12, tag: 'CULTURE' },
     { id: 'p2', author: user.name, text: 'New styling tips: hot towel ritual — a thread.', likes: 8, tag: 'TIPS' },
   ]);
+  const [bgIdx] = useState(1);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--edit-bg)');
@@ -242,16 +290,29 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
 
   return (
     <div style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--edit-bg)', animation: 'portIn .32s cubic-bezier(.16,1,.3,1)' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div>
-            <div className="port-ey">Editor Portal</div>
-            <h1 className="port-title">Studio Desk</h1>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--edit-b)', color: 'var(--edit-m)', borderRadius: 8, padding: '6px 12px', fontSize: 11, minHeight: 'unset' }}>
+
+      {/* Hero */}
+      <div style={{ position: 'relative', minHeight: '38vh', display: 'flex', alignItems: 'flex-end', overflow: 'hidden', borderBottom: '1px solid var(--edit-b)' }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${HERO_IMGS[bgIdx]})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: .15 }}/>
+        <div style={{ position: 'absolute', inset: '-50%', backgroundImage: GRAIN_BG, backgroundSize: '200px 200px', animation: 'grain 4s steps(2) infinite', opacity: .6, pointerEvents: 'none' }}/>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--edit-bg) 0%, transparent 55%)', pointerEvents: 'none' }}/>
+        <div style={{ position: 'relative', padding: '0 28px 36px', width: '100%', maxWidth: 700, margin: '0 auto' }}>
+          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.45em', color: 'var(--brass)', marginBottom: 14, textTransform: 'uppercase' }}>Editor Portal · Studio P</div>
+          <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(2.8rem,7vw,5.5rem)', fontWeight: 700, lineHeight: .9, color: 'var(--edit-t)' }}>
+            Studio<br/>
+            <em style={{ fontStyle: 'italic', color: 'var(--brass)' }}>Desk.</em>
+          </h1>
+          <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--edit-m)', marginTop: 14, letterSpacing: '.06em' }}>
+            {user.name} · Content Creator
+          </p>
+          <button onClick={onClose} style={{ position: 'absolute', bottom: 36, right: 28, background: 'none', border: '1px solid var(--edit-b)', color: 'var(--edit-m)', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer' }}>
             ← Home
           </button>
         </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '28px 20px' }}>
 
         <div className="pc">
           <div className="pc-h"><span className="pc-t">Trending Tags</span></div>
@@ -273,7 +334,7 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
                 <div className="bkav" style={{ background: 'var(--edit-b)' }}>{user.name[0]}</div>
                 <div style={{ flex: 1 }}>
                   <div className="bkn">{p.text}</div>
-                  <div className="bkm">♥ {p.likes} likes · {p.tag}</div>
+                  <div className="bkm">♥ {p.likes} likes · <span style={{ color: 'var(--brass)', letterSpacing: '.1em' }}>{p.tag}</span></div>
                 </div>
                 <button className="pbg" style={{ minHeight: 'unset', padding: '5px 10px', fontSize: 9 }}>Edit</button>
               </div>
@@ -281,28 +342,27 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
           </div>
         </div>
 
-        <div className="pc">
-          <div className="pc-h"><span className="pc-t">Media Queue</span></div>
-          <div className="pc-b">
-            <div className="gport">
-              {[
-                'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300&q=70',
-                'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&q=70',
-                'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&q=70',
-              ].map((src, i) => (
-                <div key={i} className="gpimg">
-                  <img src={src} alt={`media ${i}`} loading="lazy"/>
-                  <div className="gpov">
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }}>✓</button>
-                      <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }}>✗</button>
-                    </div>
+        <div style={{ borderTop: '1px solid var(--edit-b)', paddingTop: 24 }}>
+          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>Media Queue</div>
+          <div className="gport">
+            {[
+              'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300&q=70',
+              'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&q=70',
+              'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&q=70',
+            ].map((src, i) => (
+              <div key={i} className="gpimg">
+                <img src={src} alt={`media ${i}`} loading="lazy"/>
+                <div className="gpov">
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }}>✓</button>
+                    <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }}>✗</button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
+
       </div>
     </div>
   );
