@@ -123,19 +123,27 @@ class AuthService {
   }
 
   async signInWithGoogle(): Promise<void> {
+    sessionStorage.setItem('oauth_pending', '1');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: this.callbackUrl, scopes: 'openid email profile' },
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      sessionStorage.removeItem('oauth_pending');
+      throw new Error(error.message);
+    }
   }
 
   async signInWithApple(): Promise<void> {
+    sessionStorage.setItem('oauth_pending', '1');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: { redirectTo: this.callbackUrl },
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      sessionStorage.removeItem('oauth_pending');
+      throw new Error(error.message);
+    }
   }
 
   async signInDemo(role: UserRole): Promise<UserProfile> {

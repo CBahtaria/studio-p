@@ -143,14 +143,20 @@ function App() {
   });
   const [authOpen, setAuthOpen] = useState(false);
   const [authError, setAuthError] = useState('');
-  // True only while PKCE code exchange is in flight after OAuth redirect
-  const [loading, setLoading] = useState(() => new URLSearchParams(window.location.search).has('code'));
+  // True while PKCE code exchange is in flight after OAuth redirect.
+  // We check sessionStorage because Supabase removes ?code= from the URL
+  // before firing any onAuthStateChange events, making URL checks unreliable.
+  const [loading, setLoading] = useState(() =>
+    new URLSearchParams(window.location.search).has('code') ||
+    sessionStorage.getItem('oauth_pending') === '1'
+  );
 
   // Safety net: if PKCE exchange or profile fetch hangs, clear spinner after 8 s.
   // Also recovers if onAuthStateChange never fired but loadFromSession succeeded.
   useEffect(() => {
     if (!loading) return;
     const t = setTimeout(() => {
+      sessionStorage.removeItem('oauth_pending');
       const cached = authService.getProfile();
       if (cached) {
         setUser(cached);
@@ -188,20 +194,18 @@ function App() {
   useEffect(() => {
     const unsub = authService.onAuthStateChange((profile) => {
       if (profile) {
+        sessionStorage.removeItem('oauth_pending');
         setUser(profile);
         setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
         setAuthOpen(false);
-        // Clean up ?code= from URL after successful OAuth redirect
-        if (new URLSearchParams(window.location.search).has('code')) {
-          window.history.replaceState({}, '', '/');
-        }
         logger.info('App', 'Auth state: signed in', { name: profile.name, role: profile.role });
         setLoading(false);
       } else {
         setUser(null);
         setPage('landing');
-        // Keep spinner if PKCE exchange is still in progress (?code= still in URL)
-        if (!new URLSearchParams(window.location.search).has('code')) {
+        // Keep spinner if an OAuth redirect is still in progress.
+        // Supabase removes ?code= before events fire, so we track state in sessionStorage.
+        if (sessionStorage.getItem('oauth_pending') !== '1') {
           setLoading(false);
         }
       }
