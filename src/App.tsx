@@ -190,11 +190,15 @@ function App() {
           window.history.replaceState({}, '', '/');
         }
         logger.info('App', 'Auth state: signed in', { name: profile.name, role: profile.role });
+        setLoading(false);
       } else {
         setUser(null);
         setPage('landing');
+        // Keep spinner if PKCE exchange is still in progress (?code= still in URL)
+        if (!new URLSearchParams(window.location.search).has('code')) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     });
     return unsub;
   }, []);

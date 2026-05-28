@@ -231,7 +231,11 @@ class AuthService {
       .maybeSingle();
 
     if (!error && data) {
-      try { return rowToProfile(data as ProfileRow); } catch { /* fall through to rebuild */ }
+      try {
+        const p = rowToProfile(data as ProfileRow);
+        if (this.resolveRole(p.email) === 'admin') p.role = 'admin';
+        return p;
+      } catch { /* fall through to rebuild */ }
     }
     if (error) logger.warn('AuthService', 'profiles SELECT failed', { error: error.message });
 
