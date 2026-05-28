@@ -44,3 +44,4 @@ supabase/functions/node_modules/
 
 # Parcel cache
 .parcel-cache/
+.vercel

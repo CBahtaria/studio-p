@@ -1,10 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://esm.sh/zod@3';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  'https://studio-p-prod.vercel.app',
+  'https://studio-p.vercel.app',
+  'http://localhost:5173',
+];
+
+function corsHeaders(origin: string | null) {
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
 
 const BookingRequestSchema = z.object({
   service:   z.string().min(1),
@@ -17,8 +27,11 @@ const BookingRequestSchema = z.object({
 });
 
 Deno.serve(async (req: Request) => {
+  const origin = req.headers.get('origin');
+  const ch = { ...corsHeaders(origin), 'Content-Type': 'application/json' };
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders(origin) });
   }
 
   try {
@@ -31,26 +44,18 @@ Deno.serve(async (req: Request) => {
     const parsed = BookingRequestSchema.safeParse(body);
 
     if (!parsed.success) {
-      return new Response(JSON.stringify({ approved: false, reason: 'Invalid request', errors: parsed.error.issues }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ approved: false, reason: 'Invalid request', errors: parsed.error.issues }), { status: 400, headers: ch });
     }
 
     const { service, date, time, clientId } = parsed.data;
 
-    // Rate limit check (5 bookings per day per user)
     const { data: limited } = await supabase
       .rpc('check_booking_rate_limit', { p_user_id: clientId });
 
     if (limited === false) {
-      return new Response(JSON.stringify({ approved: false, reason: 'Daily booking limit reached (max 5 per day)' }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ approved: false, reason: 'Daily booking limit reached (max 5 per day)' }), { status: 429, headers: ch });
     }
 
-    // Service exists and is active
     const { data: svc, error: svcErr } = await supabase
       .from('services')
       .select('id, name, price_swl, duration_minutes')
@@ -59,22 +64,14 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (svcErr || !svc) {
-      return new Response(JSON.stringify({ approved: false, reason: 'Service not found or unavailable' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ approved: false, reason: 'Service not found or unavailable' }), { status: 400, headers: ch });
     }
 
-    // Date must be today or future
     const scheduledAt = new Date(`${date}T${time}:00`);
     if (scheduledAt < new Date()) {
-      return new Response(JSON.stringify({ approved: false, reason: 'Booking date must be in the future' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ approved: false, reason: 'Booking date must be in the future' }), { status: 400, headers: ch });
     }
 
-    // Check slot availability (no overlap within service duration)
     const slotEnd = new Date(scheduledAt.getTime() + svc.duration_minutes * 60000);
     const { count: conflict } = await supabase
       .from('bookings')
@@ -84,23 +81,17 @@ Deno.serve(async (req: Request) => {
       .gt('scheduled_at', new Date(scheduledAt.getTime() - svc.duration_minutes * 60000).toISOString());
 
     if ((conflict ?? 0) > 0) {
-      return new Response(JSON.stringify({ approved: false, reason: 'Time slot is already booked' }), {
-        status: 409,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ approved: false, reason: 'Time slot is already booked' }), { status: 409, headers: ch });
     }
 
-    // Generate booking ID
     const bookingId = 'BK-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 
-    // Fetch client name
     const { data: profile } = await supabase
       .from('profiles')
       .select('name')
       .eq('id', clientId)
       .single();
 
-    // Insert booking
     const { error: insertErr } = await supabase
       .from('bookings')
       .insert({
@@ -116,21 +107,15 @@ Deno.serve(async (req: Request) => {
       });
 
     if (insertErr) {
-      return new Response(JSON.stringify({ approved: false, reason: 'Failed to create booking', detail: insertErr.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ approved: false, reason: 'Failed to create booking' }), { status: 500, headers: ch });
     }
 
     return new Response(
       JSON.stringify({ approved: true, bookingId, confidence: 99, scheduledAt: scheduledAt.toISOString() }),
-      { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 201, headers: ch },
     );
 
-  } catch (err) {
-    return new Response(JSON.stringify({ approved: false, reason: 'Internal server error', detail: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch {
+    return new Response(JSON.stringify({ approved: false, reason: 'Internal server error' }), { status: 500, headers: ch });
   }
 });

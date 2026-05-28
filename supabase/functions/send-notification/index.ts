@@ -1,14 +1,26 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  'https://studio-p-prod.vercel.app',
+  'https://studio-p.vercel.app',
+  'http://localhost:5173',
+];
+
+function corsHeaders(origin: string | null) {
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
 
 type NotificationType = 'confirmation' | 'reminder' | 'cancellation';
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const origin = req.headers.get('origin');
+  const ch = { ...corsHeaders(origin), 'Content-Type': 'application/json' };
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(origin) });
 
   try {
     const supabase = createClient(
@@ -22,7 +34,7 @@ Deno.serve(async (req: Request) => {
 
     if (!bookingId) {
       return new Response(JSON.stringify({ sent: false, reason: 'bookingId required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: ch,
       });
     }
 
@@ -35,7 +47,7 @@ Deno.serve(async (req: Request) => {
 
     if (error || !booking) {
       return new Response(JSON.stringify({ sent: false, reason: 'Booking not found' }), {
-        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 404, headers: ch,
       });
     }
 
@@ -85,12 +97,12 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify(result), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: ch,
     });
 
   } catch (err) {
     return new Response(JSON.stringify({ sent: false, reason: String(err) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: ch,
     });
   }
 });

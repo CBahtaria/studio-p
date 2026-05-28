@@ -164,7 +164,7 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
                 </div>
                 {step === 'done' && result?.approved && (
                   <div style={{ textAlign: 'center', marginTop: 8 }}>
-                    <a href={`https://wa.me/26876000000?text=Booking ${result.bookingId}: ${svc} on ${date} at ${time}`}
+                    <a href={`https://wa.me/26876000000?text=${encodeURIComponent(`Booking ${result.bookingId}: ${svc} on ${date} at ${time}`)}`}
                       target="_blank" rel="noopener noreferrer"
                       className="btn-primary" style={{ display: 'inline-block', marginBottom: 10 }}>
                       Confirm on WhatsApp →

@@ -114,13 +114,17 @@ class AuthService {
     return { profile };
   }
 
+  private get callbackUrl(): string {
+    const env = import.meta.env.VITE_APP_ENV;
+    if (env === 'production') return 'https://studio-p-prod.vercel.app/auth/callback';
+    const base = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
+    return `${base}/auth/callback`;
+  }
+
   async signInWithGoogle(): Promise<void> {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${import.meta.env.VITE_PUBLIC_URL ?? window.location.origin}/auth/callback`,
-        scopes: 'openid email profile',
-      },
+      options: { redirectTo: this.callbackUrl, scopes: 'openid email profile' },
     });
     if (error) throw new Error(error.message);
   }
@@ -128,9 +132,7 @@ class AuthService {
   async signInWithApple(): Promise<void> {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
-      options: {
-        redirectTo: `${import.meta.env.VITE_PUBLIC_URL ?? window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: this.callbackUrl },
     });
     if (error) throw new Error(error.message);
   }
@@ -200,24 +202,45 @@ class AuthService {
       .eq('id', userId)
       .single();
 
-    if (error || !data) {
-      const { data: { user } } = await supabase.auth.getUser();
-      return {
-        id: userId,
-        name: (user?.user_metadata?.name as string) ?? 'Studio P Member',
-        email: user?.email ?? '',
-        role: 'viewer',
-        provider: (user?.app_metadata?.provider as UserProfile['provider']) ?? 'email',
-        memberTier: 'bronze',
-        visitCount: 0,
-        uploadCount: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        emailVerified: !!user?.email_confirmed_at,
-      };
-    }
+    if (!error && data) return rowToProfile(data as ProfileRow);
 
-    return rowToProfile(data as ProfileRow);
+    // No profile row — create one now (handles OAuth users where the trigger failed)
+    const { data: { user } } = await supabase.auth.getUser();
+    const meta = user?.user_metadata ?? {};
+    const name = (
+      (meta.full_name as string) ||
+      (meta.name as string) ||
+      user?.email?.split('@')[0] ||
+      'Member'
+    ).slice(0, 60) || 'Member';
+
+    const fallback: UserProfile = {
+      id: userId,
+      name,
+      email: user?.email ?? '',
+      avatar: (meta.avatar_url as string) ?? undefined,
+      role: 'viewer',
+      provider: (user?.app_metadata?.provider as UserProfile['provider']) ?? 'email',
+      memberTier: 'bronze',
+      visitCount: 0,
+      uploadCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      emailVerified: !!user?.email_confirmed_at,
+    };
+
+    // Persist to DB — ignore error if it already exists (race condition)
+    await supabase.from('profiles').upsert({
+      id: userId,
+      name: fallback.name,
+      email: fallback.email,
+      avatar: fallback.avatar ?? null,
+      provider: fallback.provider,
+      role: 'viewer',
+      member_tier: 'bronze',
+    }, { onConflict: 'id', ignoreDuplicates: true });
+
+    return fallback;
   }
 }
 
