@@ -146,6 +146,16 @@ function App() {
   // True only while PKCE code exchange is in flight after OAuth redirect
   const [loading, setLoading] = useState(() => new URLSearchParams(window.location.search).has('code'));
 
+  // Safety net: if PKCE exchange or profile fetch hangs, clear spinner after 8 s
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => {
+      setLoading(false);
+      window.history.replaceState({}, '', '/');
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   // Apply OS body classes + detect OAuth callback errors
   useEffect(() => {
     document.body.classList.add('os-' + osInfo.os);

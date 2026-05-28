@@ -4,6 +4,7 @@
 // Demo mode gated behind VITE_ENABLE_DEMO_MODE env flag
 // ════════════════════════════════════════════════
 
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase, rowToProfile, type ProfileRow } from '@/lib/supabase';
 import type { UserProfile, UserRole, SignUpData } from '@/types';
 import { logger } from '@/core/logger';
@@ -181,7 +182,9 @@ class AuthService {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         try {
-          const profile = await this.fetchProfile(session.user.id);
+          // Pass session.user directly — avoids calling getUser() while the
+          // Supabase auth lock is held, which would deadlock the Promise.
+          const profile = await this.fetchProfile(session.user.id, session.user);
           this.currentProfile = profile;
           cb(profile);
         } catch {
@@ -200,7 +203,7 @@ class AuthService {
     return ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'viewer';
   }
 
-  private async fetchProfile(userId: string): Promise<UserProfile> {
+  private async fetchProfile(userId: string, authUser?: SupabaseUser): Promise<UserProfile> {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -209,8 +212,9 @@ class AuthService {
 
     if (!error && data) return rowToProfile(data as ProfileRow);
 
-    // No profile row — create one now (handles OAuth users where the trigger failed)
-    const { data: { user } } = await supabase.auth.getUser();
+    // No profile row — use pre-resolved user when available (avoids calling
+    // getUser() inside an onAuthStateChange callback which would deadlock).
+    const user = authUser ?? (await supabase.auth.getUser()).data.user;
     const meta = user?.user_metadata ?? {};
     const name = (
       (meta.full_name as string) ||
