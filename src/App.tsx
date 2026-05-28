@@ -166,6 +166,14 @@ function App() {
     // Supabase redirects to /auth/callback?error=...#error=... on OAuth failure
     const params = new URLSearchParams(window.location.search);
     const hash   = new URLSearchParams(window.location.hash.slice(1));
+
+    // If there's a ?code= in the URL (OAuth callback) but oauth_pending was lost
+    // (e.g. mobile in-app browsers open a system browser with separate sessionStorage),
+    // set the flag here so INITIAL_SESSION(null) doesn't snap us to the landing page.
+    if (params.get('code') && !sessionStorage.getItem('oauth_pending')) {
+      sessionStorage.setItem('oauth_pending', '1');
+    }
+
     const errDesc = params.get('error_description') ?? hash.get('error_description');
     if (errDesc) {
       const msg = decodeURIComponent(errDesc).replace(/\+/g, ' ');
@@ -187,6 +195,10 @@ function App() {
         setUser(profile);
         setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
         setAuthOpen(false);
+        // Clean the callback URL so refresh doesn't re-submit the consumed PKCE code.
+        if (window.location.pathname.includes('auth/callback') || window.location.search.includes('code=')) {
+          window.history.replaceState({}, '', '/');
+        }
         logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role });
         setLoading(false);
       } else {

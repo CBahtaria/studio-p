@@ -23,16 +23,7 @@ class AuthService {
     return AuthService.instance;
   }
 
-  private constructor() {
-    this.loadFromSession();
-  }
-
-  private async loadFromSession(): Promise<void> {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      this.currentProfile = await this.fetchProfile(session.user.id, session.user);
-    }
-  }
+  private constructor() {}
 
   async signUp(data: SignUpData): Promise<AuthResult> {
     logger.info('AuthService', 'Sign-up initiated', { email: data.email });
