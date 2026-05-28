@@ -3,13 +3,15 @@
 // Public-facing hero, services, gallery, news
 // ════════════════════════════════════════════════
 
+import { useState, useEffect } from 'react';
 import { SERVICES } from '@/services/BookingService';
+import { supabase } from '@/lib/supabase';
 
-const GALLERY = [
-  { src: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&q=80', label: 'Skin Fade', wide: true },
-  { src: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=500&q=80', label: 'Taper Clean' },
-  { src: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=500&q=80', label: 'Line Up' },
-  { src: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=500&q=80', label: 'Full Cut' },
+const FALLBACK_BG = [
+  'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&q=80',
+  'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=500&q=80',
+  'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=500&q=80',
+  'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=500&q=80',
 ];
 
 const NEWS = [
@@ -18,11 +20,68 @@ const NEWS = [
   { title: 'Member spotlight: 1000th cut celebration', desc: 'We honoured our 1000th client with a full ritual', tag: 'COMMUNITY' },
 ];
 
+function timeAgo(ts: string): string {
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+interface ClientPhoto { url: string; caption: string | null; created_at: string; }
+
 interface LandingPageProps {
   onSignIn: () => void;
 }
 
 export function LandingPage({ onSignIn }: LandingPageProps) {
+  const [bgPhotos, setBgPhotos] = useState<string[]>(FALLBACK_BG);
+  const [bgIdx, setBgIdx] = useState(0);
+  const [bgVisible, setBgVisible] = useState(true);
+  const [clientPhotos, setClientPhotos] = useState<ClientPhoto[]>([]);
+
+  // Fetch approved client photos for dynamic background and gallery section
+  useEffect(() => {
+    supabase
+      .from('gallery_items')
+      .select('url, caption, created_at')
+      .eq('approved', true)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setBgPhotos(shuffle(data.map(d => d.url)));
+          setClientPhotos(data as ClientPhoto[]);
+        }
+      });
+  }, []);
+
+  // Rotate hero background every 6 seconds with crossfade
+  useEffect(() => {
+    if (bgPhotos.length <= 1) return;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const intervalId = setInterval(() => {
+      setBgVisible(false);
+      timeoutId = setTimeout(() => {
+        setBgIdx(i => (i + 1) % bgPhotos.length);
+        setBgVisible(true);
+      }, 400);
+    }, 6000);
+    return () => {
+      clearInterval(intervalId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [bgPhotos.length]);
+
   return (
     <div style={{ paddingTop: 0, animation: 'fadeIn .4s ease' }}>
       {/* Ticker */}
@@ -38,14 +97,15 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
       {/* Hero */}
       <div style={{ position: 'relative', minHeight: '88vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-        {/* Bg image */}
+        {/* Dynamic background with crossfade */}
         <div style={{
           position: 'absolute', inset: 0,
-          backgroundImage: `url(${GALLERY[0].src})`,
+          backgroundImage: `url(${bgPhotos[bgIdx]})`,
           backgroundSize: 'cover', backgroundPosition: 'center',
-          opacity: .22,
+          opacity: bgVisible ? .22 : 0,
+          transition: 'opacity .4s ease',
         }}/>
-        {/* Grain */}
+        {/* Grain overlay */}
         <div style={{
           position: 'absolute', inset: '-50%',
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`,
@@ -73,7 +133,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             Walk in as yourself. Leave as royalty. Studio P is Manzini's home of precision craftsmanship.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', animation: 'slideUp .6s .35s both' }}>
-            <a href="https://wa.me/26876000000" target="_blank" rel="noopener noreferrer" className="btn-primary">
+            <a href="https://wa.me/26879657744" target="_blank" rel="noopener noreferrer" className="btn-primary">
               Book Your Chair
             </a>
             <button className="btn-outline" onClick={onSignIn}>
@@ -114,6 +174,40 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Client photo gallery — only shown when approved photos exist */}
+      {clientPhotos.length > 0 && (
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>
+          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 8, textTransform: 'uppercase' }}>
+            Fresh Cuts
+          </div>
+          <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(1.8rem,4vw,3rem)', fontWeight: 600, marginBottom: 32 }}>
+            From the Chair
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+            {clientPhotos.slice(0, 8).map((photo, i) => (
+              <div key={i} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
+                <img
+                  src={photo.url}
+                  alt={photo.caption ?? 'Studio P client photo'}
+                  loading="lazy"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  background: 'linear-gradient(transparent, rgba(0,0,0,.65))',
+                  padding: '20px 8px 7px',
+                  fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'rgba(255,255,255,.7)',
+                  letterSpacing: '.08em',
+                }}>
+                  {photo.caption && <div style={{ marginBottom: 2, color: '#fff', fontSize: 10 }}>{photo.caption}</div>}
+                  {timeAgo(photo.created_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* News */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>

@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const waNumber = Deno.env.get('WHATSAPP_NUMBER') ?? '26876000000';
+    const waNumber = Deno.env.get('WHATSAPP_NUMBER') ?? '26879657744';
 
     const { bookingId, type = 'confirmation' }: { bookingId: string; type: NotificationType } = await req.json();
 

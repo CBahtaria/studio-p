@@ -143,6 +143,8 @@ function App() {
   });
   const [authOpen, setAuthOpen] = useState(false);
   const [authError, setAuthError] = useState('');
+  // True only while PKCE code exchange is in flight after OAuth redirect
+  const [loading, setLoading] = useState(() => new URLSearchParams(window.location.search).has('code'));
 
   // Apply OS body classes + detect OAuth callback errors
   useEffect(() => {
@@ -162,7 +164,29 @@ function App() {
       window.history.replaceState({}, '', '/');
       setAuthError(`Sign-in failed: ${msg}. Please try again.`);
       setAuthOpen(true);
+      setLoading(false);
     }
+  }, []);
+
+  // Subscribe to Supabase auth state — fires on INITIAL_SESSION and after PKCE exchange
+  useEffect(() => {
+    const unsub = authService.onAuthStateChange((profile) => {
+      if (profile) {
+        setUser(profile);
+        setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
+        setAuthOpen(false);
+        // Clean up ?code= from URL after successful OAuth redirect
+        if (new URLSearchParams(window.location.search).has('code')) {
+          window.history.replaceState({}, '', '/');
+        }
+        logger.info('App', 'Auth state: signed in', { name: profile.name, role: profile.role });
+      } else {
+        setUser(null);
+        setPage('landing');
+      }
+      setLoading(false);
+    });
+    return unsub;
   }, []);
 
   const handleAuth = (profile: UserProfile) => {
@@ -181,6 +205,15 @@ function App() {
 
   const padTop = osInfo.mobile ? 0 : osInfo.chromeHeight;
   const padBot = 80;
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', flexDirection: 'column', gap: 16 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 60, color: 'var(--brass)' }}>P</div>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.3em', color: 'var(--stone)' }}>SIGNING IN…</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100dvh', paddingTop: padTop, paddingBottom: padBot }}>

@@ -11,7 +11,7 @@ class NotificationService {
 
   // ── WhatsApp booking URL ─────────────────────
   buildWhatsAppURL(booking: Booking, recipientNumber?: string): string {
-    const number = recipientNumber ?? import.meta.env.VITE_WHATSAPP_NUMBER ?? '26876000000';
+    const number = recipientNumber ?? import.meta.env.VITE_WHATSAPP_NUMBER ?? '26879657744';
     const text = [
       '✂️ Studio P Booking Request',
       `Service: ${booking.service}`,
