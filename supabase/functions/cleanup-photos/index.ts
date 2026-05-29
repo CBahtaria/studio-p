@@ -3,60 +3,79 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 Deno.serve(async (req: Request) => {
   const headers = { 'Content-Type': 'application/json' };
 
-  // Only accept calls bearing the service role key
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const token = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
   if (!token || token !== serviceKey) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    serviceKey,
-  );
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
 
-  // Find gallery_items older than 5 days that have a storage path
-  const cutoff = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+  let totalDeleted = 0;
 
-  const { data: expired, error: fetchErr } = await supabase
+  // ── 1. Image cleanup: delete images older than 5 days ──────────────
+  const imageCutoff = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: expiredImages, error: imgFetchErr } = await supabase
     .from('gallery_items')
     .select('id, storage_path')
-    .lt('created_at', cutoff)
+    .eq('media_type', 'image')
+    .lt('created_at', imageCutoff)
     .not('storage_path', 'is', null);
 
-  if (fetchErr) {
-    return new Response(JSON.stringify({ error: fetchErr.message }), { status: 500, headers });
+  if (imgFetchErr) {
+    return new Response(JSON.stringify({ error: imgFetchErr.message }), { status: 500, headers });
   }
 
-  if (!expired || expired.length === 0) {
-    return new Response(JSON.stringify({ deleted: 0 }), { status: 200, headers });
-  }
+  if (expiredImages && expiredImages.length > 0) {
+    const imgPaths = expiredImages
+      .map((r: { storage_path: string | null }) => r.storage_path)
+      .filter((p): p is string => !!p);
 
-  const storagePaths = expired
-    .map((r: { storage_path: string | null }) => r.storage_path)
-    .filter((p): p is string => !!p);
-
-  // Remove files from storage bucket
-  if (storagePaths.length > 0) {
-    const { error: storageErr } = await supabase.storage
-      .from('client-photos')
-      .remove(storagePaths);
-    if (storageErr) {
-      console.error('[cleanup-photos] Storage removal error:', storageErr.message);
+    if (imgPaths.length > 0) {
+      const { error: storageErr } = await supabase.storage.from('client-photos').remove(imgPaths);
+      if (storageErr) console.error('[cleanup] Image storage removal error:', storageErr.message);
     }
+
+    const imgIds = expiredImages.map((r: { id: string }) => r.id);
+    const { error: deleteErr } = await supabase.from('gallery_items').delete().in('id', imgIds);
+    if (deleteErr) {
+      return new Response(JSON.stringify({ error: deleteErr.message }), { status: 500, headers });
+    }
+    totalDeleted += imgIds.length;
+    console.log(`[cleanup] Deleted ${imgIds.length} expired images`);
   }
 
-  // Delete the database rows
-  const ids = expired.map((r: { id: string }) => r.id);
-  const { error: deleteErr } = await supabase
+  // ── 2. Video cleanup: delete videos past their 7-day expires_at ────
+  const { data: expiredVideos, error: vidFetchErr } = await supabase
     .from('gallery_items')
-    .delete()
-    .in('id', ids);
+    .select('id, storage_path')
+    .eq('media_type', 'video')
+    .lt('expires_at', new Date().toISOString())
+    .not('storage_path', 'is', null);
 
-  if (deleteErr) {
-    return new Response(JSON.stringify({ error: deleteErr.message }), { status: 500, headers });
+  if (vidFetchErr) {
+    return new Response(JSON.stringify({ error: vidFetchErr.message }), { status: 500, headers });
   }
 
-  console.log(`[cleanup-photos] Deleted ${ids.length} expired photos`);
-  return new Response(JSON.stringify({ deleted: ids.length }), { status: 200, headers });
+  if (expiredVideos && expiredVideos.length > 0) {
+    const vidPaths = expiredVideos
+      .map((r: { storage_path: string | null }) => r.storage_path)
+      .filter((p): p is string => !!p);
+
+    if (vidPaths.length > 0) {
+      const { error: storageErr } = await supabase.storage.from('studio-media').remove(vidPaths);
+      if (storageErr) console.error('[cleanup] Video storage removal error:', storageErr.message);
+    }
+
+    const vidIds = expiredVideos.map((r: { id: string }) => r.id);
+    const { error: deleteErr } = await supabase.from('gallery_items').delete().in('id', vidIds);
+    if (deleteErr) {
+      return new Response(JSON.stringify({ error: deleteErr.message }), { status: 500, headers });
+    }
+    totalDeleted += vidIds.length;
+    console.log(`[cleanup] Deleted ${vidIds.length} expired videos`);
+  }
+
+  return new Response(JSON.stringify({ deleted: totalDeleted }), { status: 200, headers });
 });

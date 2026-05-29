@@ -4,8 +4,9 @@
 // ════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
-import { SERVICES } from '@/services/BookingService';
 import { supabase } from '@/lib/supabase';
+import { useServices } from '@/hooks/useServices';
+import { useReveal } from '@/hooks/useReveal';
 
 const FALLBACK_BG = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&q=80',
@@ -38,23 +39,38 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 interface ClientPhoto { url: string; caption: string | null; created_at: string; }
+interface VideoItem   { url: string; }
 
 interface LandingPageProps {
   onSignIn: () => void;
 }
 
 export function LandingPage({ onSignIn }: LandingPageProps) {
-  const [bgPhotos, setBgPhotos] = useState<string[]>(FALLBACK_BG);
-  const [bgIdx, setBgIdx] = useState(0);
+  const { services } = useServices();
+
+  const [bgPhotos, setBgPhotos]   = useState<string[]>(FALLBACK_BG);
+  const [bgVideos, setBgVideos]   = useState<VideoItem[]>([]);
+  const [bgIdx, setBgIdx]         = useState(0);
   const [bgVisible, setBgVisible] = useState(true);
   const [clientPhotos, setClientPhotos] = useState<ClientPhoto[]>([]);
 
-  // Fetch approved client photos for dynamic background and gallery section
+  const useVideos = bgVideos.length > 0;
+  const bgItems   = useVideos ? bgVideos.map(v => v.url) : bgPhotos;
+  const rotateMs  = useVideos ? 12000 : 6000;
+
+  // Scroll reveal refs
+  const revealServices = useReveal();
+  const revealGallery  = useReveal();
+  const revealNews     = useReveal();
+
+  // Fetch approved media for hero + gallery
   useEffect(() => {
+    // Images for background and gallery
     supabase
       .from('gallery_items')
       .select('url, caption, created_at')
       .eq('approved', true)
+      .eq('media_type', 'image')
       .order('created_at', { ascending: false })
       .limit(20)
       .then(({ data }) => {
@@ -63,24 +79,36 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           setClientPhotos(data as ClientPhoto[]);
         }
       });
+
+    // Videos for hero (newest first, up to 5)
+    supabase
+      .from('gallery_items')
+      .select('url')
+      .eq('approved', true)
+      .eq('media_type', 'video')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (data && data.length > 0) setBgVideos(data as VideoItem[]);
+      });
   }, []);
 
-  // Rotate hero background every 6 seconds with crossfade
+  // Rotate hero background (12 s for videos, 6 s for photos)
   useEffect(() => {
-    if (bgPhotos.length <= 1) return;
+    if (bgItems.length <= 1) return;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const intervalId = setInterval(() => {
       setBgVisible(false);
       timeoutId = setTimeout(() => {
-        setBgIdx(i => (i + 1) % bgPhotos.length);
+        setBgIdx(i => (i + 1) % bgItems.length);
         setBgVisible(true);
       }, 400);
-    }, 6000);
+    }, rotateMs);
     return () => {
       clearInterval(intervalId);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [bgPhotos.length]);
+  }, [bgItems.length, rotateMs]);
 
   return (
     <div style={{ paddingTop: 0, animation: 'fadeIn .4s ease' }}>
@@ -89,7 +117,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         <div className="ticker-inner" style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.25em', color: 'var(--brass)' }}>
           {Array(6).fill(null).map((_, i) => (
             <span key={i} style={{ marginRight: 60 }}>
-              STUDIO P · PRECISION CRAFTSMANSHIP · MANZINI, ESWATINI · EST. 2020 ·
+              STUDIO P · PRECISION CRAFTSMANSHIP · MATSAPHA, ESWATINI · EST. 2020 ·
             </span>
           ))}
         </div>
@@ -97,14 +125,30 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
       {/* Hero */}
       <div style={{ position: 'relative', minHeight: '88vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-        {/* Dynamic background with crossfade */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `url(${bgPhotos[bgIdx]})`,
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          opacity: bgVisible ? .22 : 0,
-          transition: 'opacity .4s ease',
-        }}/>
+        {/* Dynamic background — video or photo crossfade */}
+        {useVideos ? (
+          <video
+            key={bgIdx}
+            src={bgItems[bgIdx]}
+            autoPlay muted loop playsInline
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              objectFit: 'cover',
+              opacity: bgVisible ? .3 : 0,
+              transition: 'opacity .4s ease',
+              pointerEvents: 'none',
+            }}
+          />
+        ) : (
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: `url(${bgItems[bgIdx]})`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            opacity: bgVisible ? .22 : 0,
+            transition: 'opacity .4s ease',
+          }}/>
+        )}
+
         {/* Grain overlay */}
         <div style={{
           position: 'absolute', inset: '-50%',
@@ -116,7 +160,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
         <div style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '60px 32px', width: '100%' }}>
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.4em', color: 'var(--brass)', marginBottom: 20, textTransform: 'uppercase' }}>
-            Manzini · Eswatini · Est. 2020
+            Matsapha · Eswatini · Est. 2020
           </div>
           <h1 style={{
             fontSize: 'clamp(3.2rem, 10vw, 7.5rem)',
@@ -130,7 +174,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             IT'S A CULTURE.
           </h1>
           <p style={{ maxWidth: 500, margin: '28px 0', color: 'var(--stone)', fontSize: 15, lineHeight: 1.7, animation: 'slideUp .6s .2s both' }}>
-            Walk in as yourself. Leave as royalty. Fanu's Studio-P is Manzini's home of precision craftsmanship.
+            Walk in as yourself. Leave as royalty. Fanu's Studio-P is Matsapha's home of precision craftsmanship.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', animation: 'slideUp .6s .35s both' }}>
             <a href="https://wa.me/26879657744" target="_blank" rel="noopener noreferrer" className="btn-primary">
@@ -144,7 +188,11 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       </div>
 
       {/* Services */}
-      <div style={{ borderTop: '1px solid var(--bord)', borderBottom: '1px solid var(--bord)', background: 'var(--ink2)' }}>
+      <div
+        ref={revealServices}
+        data-reveal
+        style={{ borderTop: '1px solid var(--bord)', borderBottom: '1px solid var(--bord)', background: 'var(--ink2)' }}
+      >
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 8, textTransform: 'uppercase' }}>
             The Menu
@@ -152,9 +200,11 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(1.8rem,4vw,3rem)', fontWeight: 600, marginBottom: 32 }}>
             Services
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1, background: 'var(--bord)' }}>
-            {SERVICES.map(s => (
-              <div key={s.code} style={{ background: 'var(--ink)', padding: 24, transition: 'background .2s' }}
+          <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1, background: 'var(--bord)' }}>
+            {services.map((s, i) => (
+              <div
+                key={s.id}
+                style={{ '--i': i, background: 'var(--ink)', padding: 24, transition: 'background .2s' } as React.CSSProperties}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--ink2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--ink)')}
               >
@@ -164,10 +214,10 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 600, marginBottom: 6 }}>
                   {s.name}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 12, lineHeight: 1.5 }}>{s.desc}</div>
+                <div style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 12, lineHeight: 1.5 }}>{s.description}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', color: 'var(--brass)', fontWeight: 600 }}>{s.price}</span>
-                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)' }}>{s.duration}</span>
+                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', color: 'var(--brass)', fontWeight: 600 }}>E{s.price}</span>
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)' }}>{s.duration} min</span>
                 </div>
               </div>
             ))}
@@ -177,7 +227,11 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
       {/* Client photo gallery — only shown when approved photos exist */}
       {clientPhotos.length > 0 && (
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>
+        <div
+          ref={revealGallery}
+          data-reveal
+          style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}
+        >
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 8, textTransform: 'uppercase' }}>
             Fresh Cuts
           </div>
@@ -210,7 +264,11 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       )}
 
       {/* News */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>
+      <div
+        ref={revealNews}
+        data-reveal
+        style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}
+      >
         <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 8, textTransform: 'uppercase' }}>
           The Culture
         </div>

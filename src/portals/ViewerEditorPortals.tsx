@@ -4,10 +4,12 @@
 
 import { useState, useEffect } from 'react';
 import type { UserProfile, Agent, OrchestrationResult } from '@/types';
-import { bookingService, SERVICES } from '@/services/BookingService';
+import { bookingService } from '@/services/BookingService';
 import { monitor } from '@/core/monitor';
 import { AgentPanel } from '@/components/AgentPanel';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { ServicesManager } from '@/components/ServicesManager';
+import { useServices } from '@/hooks/useServices';
 
 const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
 
@@ -28,13 +30,14 @@ type BookStep = 'select' | 'validating' | 'done';
 
 export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
   const [section, setSection] = useState<'home' | 'book' | 'history'>('home');
-  const [svc, setSvc]     = useState('');
-  const [date, setDate]   = useState('');
-  const [time, setTime]   = useState('');
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [result, setResult] = useState<OrchestrationResult | null>(null);
-  const [step, setStep]   = useState<BookStep>('select');
-  const [bgIdx] = useState(() => Math.floor(Math.random() * HERO_IMGS.length));
+  const [svc, setSvc]         = useState('');
+  const [date, setDate]       = useState('');
+  const [time, setTime]       = useState('');
+  const [agents, setAgents]   = useState<Agent[]>([]);
+  const [result, setResult]   = useState<OrchestrationResult | null>(null);
+  const [step, setStep]       = useState<BookStep>('select');
+  const [bgIdx]               = useState(() => Math.floor(Math.random() * HERO_IMGS.length));
+  const { services }          = useServices();
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--view-bg)');
@@ -69,7 +72,7 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
   const firstName = user.name.split(' ')[0];
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--view-bg)', animation: 'portIn .32s cubic-bezier(.16,1,.3,1)' }}>
+    <div className="portal-enter" style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--view-bg)' }}>
 
       {/* Hero */}
       <div style={{ position: 'relative', minHeight: '40vh', display: 'flex', alignItems: 'flex-end', overflow: 'hidden', borderBottom: '1px solid var(--view-b)' }}>
@@ -158,24 +161,24 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
           <div>
             {step === 'select' && (
               <div>
-                {/* Service grid — landing page style */}
                 <div style={{ borderTop: '1px solid var(--view-b)', paddingTop: 20, marginBottom: 20 }}>
                   <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>The Menu</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1, background: 'var(--view-b)', marginBottom: 20 }}>
-                    {SERVICES.map(s => (
-                      <button key={s.code} onClick={() => setSvc(s.name)} style={{
+                  <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1, background: 'var(--view-b)', marginBottom: 20 }}>
+                    {services.map((s, i) => (
+                      <button key={s.id} onClick={() => setSvc(s.name)} style={{
+                        '--i': i,
                         background: svc === s.name ? 'rgba(167,139,250,.1)' : 'var(--view-bg)',
                         border: 'none',
                         borderLeft: svc === s.name ? '2px solid var(--view-a)' : '2px solid transparent',
                         padding: '18px 16px',
                         textAlign: 'left', cursor: 'pointer',
                         transition: 'background .2s',
-                      }}>
+                      } as React.CSSProperties}>
                         <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, letterSpacing: '.2em', color: svc === s.name ? 'var(--view-a)' : 'var(--brass)', marginBottom: 6, textTransform: 'uppercase' }}>{s.tag}</div>
                         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.15rem', fontWeight: 600, color: 'var(--view-t)', marginBottom: 4 }}>{s.name}</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
-                          <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: svc === s.name ? 'var(--view-a)' : 'var(--brass)', fontWeight: 600 }}>{s.price}</span>
-                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--stone)' }}>{s.duration}</span>
+                          <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: svc === s.name ? 'var(--view-a)' : 'var(--brass)', fontWeight: 600 }}>E{s.price}</span>
+                          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--stone)' }}>{s.duration} min</span>
                         </div>
                       </button>
                     ))}
@@ -238,11 +241,7 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
               { service: 'Taper & Define', date: 'Apr 03, 2025', price: 'E100', status: 'completed', barber: 'P. Dlamini' },
               { service: 'Full Package',   date: 'Mar 01, 2025', price: 'E220', status: 'completed', barber: 'P. Dlamini' },
             ].map((b, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 16,
-                padding: '18px 0',
-                borderBottom: '1px solid var(--view-b)',
-              }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 0', borderBottom: '1px solid var(--view-b)' }}>
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--view-b)', lineHeight: 1, width: 32, textAlign: 'center' }}>{String(i + 1).padStart(2, '0')}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--view-t)' }}>{b.service}</div>
@@ -269,7 +268,10 @@ interface EditorPortalProps {
   onClose: () => void;
 }
 
+type EditorSection = 'posts' | 'services' | 'media';
+
 export function EditorPortal({ user, onClose }: EditorPortalProps) {
+  const [section, setSection] = useState<EditorSection>('posts');
   const [posts] = useState([
     { id: 'p1', author: user.name, text: 'Fresh fade of the day. Precision work.', likes: 12, tag: 'CULTURE' },
     { id: 'p2', author: user.name, text: 'New styling tips: hot towel ritual — a thread.', likes: 8, tag: 'TIPS' },
@@ -289,7 +291,7 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
   }, []);
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--edit-bg)', animation: 'portIn .32s cubic-bezier(.16,1,.3,1)' }}>
+    <div className="portal-enter" style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--edit-bg)' }}>
 
       {/* Hero */}
       <div style={{ position: 'relative', minHeight: '38vh', display: 'flex', alignItems: 'flex-end', overflow: 'hidden', borderBottom: '1px solid var(--edit-b)' }}>
@@ -314,54 +316,89 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
       {/* Content */}
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '28px 20px' }}>
 
-        <div className="pc">
-          <div className="pc-h"><span className="pc-t">Trending Tags</span></div>
-          <div className="pc-b">
-            {['#FadeCulture', '#TaperSeason', '#EswatiniStyle', '#StudioP', '#PrecisionGrooming'].map(tag => (
-              <span key={tag} className={`chip${tag === '#FadeCulture' ? ' active' : ''}`}>{tag}</span>
-            ))}
-          </div>
+        {/* Section nav */}
+        <div style={{ display: 'flex', gap: 2, marginBottom: 24, background: 'var(--edit-s)', borderRadius: 8, padding: 3 }}>
+          {([['posts', '✏️ Posts'], ['services', '💈 Services'], ['media', '🖼 Media']] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setSection(id)} style={{
+              flex: 1, background: section === id ? 'var(--edit-b)' : 'transparent',
+              border: 'none', color: section === id ? 'var(--edit-a)' : 'var(--edit-m)',
+              borderRadius: 6, padding: '9px 12px', fontSize: 10,
+              fontFamily: 'DM Mono, monospace', letterSpacing: '.1em',
+              cursor: 'pointer', minHeight: 'unset', transition: 'all .15s',
+            }}>{label}</button>
+          ))}
         </div>
 
-        <div className="pc">
-          <div className="pc-h">
-            <span className="pc-t">Your Posts</span>
-            <button className="pb">+ Write New</button>
-          </div>
-          <div style={{ padding: '4px 18px' }}>
-            {posts.map(p => (
-              <div key={p.id} className="bki">
-                <div className="bkav" style={{ background: 'var(--edit-b)' }}>{user.name[0]}</div>
-                <div style={{ flex: 1 }}>
-                  <div className="bkn">{p.text}</div>
-                  <div className="bkm">♥ {p.likes} likes · <span style={{ color: 'var(--brass)', letterSpacing: '.1em' }}>{p.tag}</span></div>
-                </div>
-                <button className="pbg" style={{ minHeight: 'unset', padding: '5px 10px', fontSize: 9 }}>Edit</button>
+        {/* Posts */}
+        {section === 'posts' && (
+          <div>
+            <div className="pc">
+              <div className="pc-h">
+                <span className="pc-t">Trending Tags</span>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="pc-b">
+                {['#FadeCulture', '#TaperSeason', '#EswatiniStyle', '#StudioP', '#PrecisionGrooming'].map(tag => (
+                  <span key={tag} className={`chip${tag === '#FadeCulture' ? ' active' : ''}`}>{tag}</span>
+                ))}
+              </div>
+            </div>
 
-        <div style={{ borderTop: '1px solid var(--edit-b)', paddingTop: 24 }}>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>Media Queue</div>
-          <div className="gport">
-            {[
-              'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300&q=70',
-              'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&q=70',
-              'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&q=70',
-            ].map((src, i) => (
-              <div key={i} className="gpimg">
-                <img src={src} alt={`media ${i}`} loading="lazy"/>
-                <div className="gpov">
-                  <div style={{ display: 'flex', gap: 5 }}>
-                    <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }}>✓</button>
-                    <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }}>✗</button>
+            <div className="pc">
+              <div className="pc-h">
+                <span className="pc-t">Your Posts</span>
+                <button className="pb">+ Write New</button>
+              </div>
+              <div style={{ padding: '4px 18px' }}>
+                {posts.map(p => (
+                  <div key={p.id} className="bki">
+                    <div className="bkav" style={{ background: 'var(--edit-b)' }}>{user.name[0]}</div>
+                    <div style={{ flex: 1 }}>
+                      <div className="bkn">{p.text}</div>
+                      <div className="bkm">♥ {p.likes} likes · <span style={{ color: 'var(--brass)', letterSpacing: '.1em' }}>{p.tag}</span></div>
+                    </div>
+                    <button className="pbg" style={{ minHeight: 'unset', padding: '5px 10px', fontSize: 9 }}>Edit</button>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Services CRUD */}
+        {section === 'services' && (
+          <div className="pc">
+            <div className="pc-h"><span className="pc-t">Pricelist Management</span></div>
+            <div className="pc-b">
+              <ServicesManager />
+            </div>
+          </div>
+        )}
+
+        {/* Media queue */}
+        {section === 'media' && (
+          <div>
+            <div style={{ borderTop: '1px solid var(--edit-b)', paddingTop: 24 }}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>Media Queue</div>
+              <div className="gport">
+                {[
+                  'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300&q=70',
+                  'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&q=70',
+                  'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&q=70',
+                ].map((src, i) => (
+                  <div key={i} className="gpimg">
+                    <img src={src} alt={`media ${i}`} loading="lazy"/>
+                    <div className="gpov">
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }}>✓</button>
+                        <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }}>✗</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
