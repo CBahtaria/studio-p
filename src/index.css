@@ -3,11 +3,12 @@
    Design tokens · Animations · Component primitives
    ════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
   --ink:#070604;--ink2:#0D0B08;--ink3:#141008;--ink4:#1A1410;
   --brass:#B8966A;--brass-l:#D4B483;--brass-d:#6B5330;
+  --gold:#D4950F;--gold-l:#EFB030;--gold-d:#8B6008;
   --parch:#F2EBD9;--parch2:#D4C9A8;
   --stone:#7A7060;--stone2:#4A4438;
   --bord:#1E1A13;--bord2:#2A2419;--bord-b:rgba(184,150,106,0.18);
@@ -40,8 +41,8 @@ input,textarea,select{font-family:inherit}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bord2);border-radius:4px}
-.btn-primary{background:var(--brass);color:var(--ink);border:none;padding:14px 28px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.25em;cursor:pointer;border-radius:var(--radius);text-transform:uppercase;transition:background .2s}
-.btn-primary:hover{background:var(--brass-l)}
+.btn-primary{background:var(--gold);color:var(--ink);border:none;padding:15px 32px;font-family:'Anton',sans-serif;font-size:13px;letter-spacing:.08em;cursor:pointer;border-radius:var(--radius);text-transform:uppercase;transition:background .2s,transform .15s}
+.btn-primary:hover{background:var(--gold-l);transform:scale(1.02)}
 .btn-outline{background:transparent;color:var(--parch);border:1px solid var(--brass-d);padding:13px 28px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.25em;cursor:pointer;border-radius:var(--radius);text-transform:uppercase;transition:border-color .2s,color .2s}
 .btn-outline:hover{border-color:var(--brass);color:var(--brass)}
 .pc{background:var(--port-side);border:1px solid var(--port-bord);border-radius:var(--radius2);overflow:hidden;margin-bottom:16px}
