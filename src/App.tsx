@@ -219,24 +219,29 @@ function App() {
         }
 
         const portalPage = profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer';
-        setPage(portalPage);
-        setAuthOpen(false);
+        const isOAuthReturn = window.location.pathname.startsWith('/auth/callback') || window.location.search.includes('code=');
+        const isAtPortalUrl = (['admin', 'editor', 'viewer'] as string[]).includes(window.location.pathname.slice(1));
 
-        // Clean consumed PKCE code from URL.
-        if (window.location.pathname.startsWith('/auth/callback') || window.location.search.includes('code=')) {
-          window.history.replaceState({}, '', `/${portalPage}`);
+        if (isOAuthReturn || isAtPortalUrl) {
+          // Navigating in from OAuth or a bookmarked portal URL — go straight to portal.
+          setPage(portalPage);
+          if (isOAuthReturn) {
+            window.history.replaceState({}, '', `/${portalPage}`);
+          }
         }
+        // else: returning user visiting root — stay on landing so they see the page,
+        // dock nav lets them jump to their portal.
 
+        setAuthOpen(false);
         logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role });
         setLoading(false);
       } else {
         setUser(null);
-        if (sessionStorage.getItem('oauth_pending') !== '1') {
-          if (!window.location.pathname.startsWith('/auth/')) {
-            setPage('landing');
-          }
-          setLoading(false);
+        sessionStorage.removeItem('oauth_pending');
+        if (!window.location.pathname.startsWith('/auth/')) {
+          setPage('landing');
         }
+        setLoading(false);
       }
     });
     return unsub;
@@ -253,8 +258,8 @@ function App() {
   };
 
   const handleSignOut = async () => {
-    await authService.signOut();
     sessionStorage.removeItem('oauth_pending');
+    await authService.signOut();
     setUser(null);
     setPage('landing');
     window.history.pushState({}, '', '/');
