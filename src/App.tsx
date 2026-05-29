@@ -225,14 +225,15 @@ function App() {
         if (isOAuthReturn || isAtPortalUrl) {
           // Navigating in from OAuth or a bookmarked portal URL — go straight to portal.
           setPage(portalPage);
+          setAuthOpen(false);
           if (isOAuthReturn) {
             window.history.replaceState({}, '', `/${portalPage}`);
           }
         }
-        // else: returning user visiting root — stay on landing so they see the page,
-        // dock nav lets them jump to their portal.
+        // else: user has an active session at root or via email sign-in.
+        // Do NOT close the modal here — handleAuth will close it after navigation.
+        // Do NOT setPage here — handleAuth will push the portal URL.
 
-        setAuthOpen(false);
         logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role });
         setLoading(false);
       } else {
