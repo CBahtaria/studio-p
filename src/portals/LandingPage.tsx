@@ -130,14 +130,14 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             IT'S A CULTURE.
           </h1>
           <p style={{ maxWidth: 500, margin: '28px 0', color: 'var(--stone)', fontSize: 15, lineHeight: 1.7, animation: 'slideUp .6s .2s both' }}>
-            Walk in as yourself. Leave as royalty. Studio P is Manzini's home of precision craftsmanship.
+            Walk in as yourself. Leave as royalty. Fanu's Studio-P is Manzini's home of precision craftsmanship.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', animation: 'slideUp .6s .35s both' }}>
             <a href="https://wa.me/26879657744" target="_blank" rel="noopener noreferrer" className="btn-primary">
               Book Your Chair
             </a>
             <button className="btn-outline" onClick={onSignIn}>
-              Join Studio P
+              Join Fanu's Studio-P
             </button>
           </div>
         </div>
