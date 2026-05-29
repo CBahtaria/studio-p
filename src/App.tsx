@@ -9,6 +9,8 @@ import { authService } from '@/auth/AuthService';
 import { osInfo } from '@/core/osDetect';
 import { logger } from '@/core/logger';
 import { AuthModal } from '@/components/AuthModal';
+import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
+import { PasswordResetPage } from '@/pages/PasswordResetPage';
 import { DevLogPanel } from '@/components/DevLogPanel';
 import { LandingPage } from '@/portals/LandingPage';
 import { AdminPortal } from '@/portals/AdminPortal';
@@ -40,6 +42,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 type AppPage = 'landing' | 'admin' | 'editor' | 'viewer';
+type AnyPage = AppPage | 'auth/callback' | 'auth/reset';
+
+function getPageFromPathname(pathname: string): AnyPage {
+  if (pathname.startsWith('/auth/callback')) return 'auth/callback';
+  if (pathname.startsWith('/auth/reset'))    return 'auth/reset';
+  if (pathname === '/admin')  return 'admin';
+  if (pathname === '/editor') return 'editor';
+  if (pathname === '/viewer') return 'viewer';
+  return 'landing';
+}
 
 // ── Mac-style Menu Bar ────────────────────────────
 function MacBar({ user, onSignIn, onSignOut }: { user: UserProfile | null; onSignIn: () => void; onSignOut: () => void }) {
@@ -66,7 +78,7 @@ function MacBar({ user, onSignIn, onSignOut }: { user: UserProfile | null; onSig
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>P</span>
-        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>Studio P</span>
+        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>Fanu's Studio-P</span>
         {user && (
           <span style={{ fontSize: 8, color: roleColor[user.role] ?? 'var(--brass)', border: '1px solid', padding: '2px 6px', borderRadius: 3, letterSpacing: '.2em' }}>
             {user.role.toUpperCase()}
@@ -135,18 +147,13 @@ function Dock({ user, page, onNav }: { user: UserProfile | null; page: AppPage; 
 
 // ── Root App ─────────────────────────────────────
 function App() {
-  // Auth state — never initialised from sync cache to avoid stale-data flash
-  const [user, setUser]     = useState<UserProfile | null>(null);
-  const [page, setPage]     = useState<AppPage>('landing');
+  const [user, setUser]         = useState<UserProfile | null>(null);
+  const [page, setPage]         = useState<AppPage>('landing');
   const [authOpen, setAuthOpen] = useState(false);
   const [authError, setAuthError] = useState('');
-
-  // Always start loading. We don't know auth state until Supabase fires its first
-  // onAuthStateChange event. This prevents any flash of the wrong view.
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
 
   // Hard-stop spinner after 10 s in case Supabase never fires.
-  // Does NOT attempt to read a cached profile — that was the "force display" bug.
   useEffect(() => {
     const t = setTimeout(() => {
       sessionStorage.removeItem('oauth_pending');
@@ -155,7 +162,7 @@ function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // OS body classes + OAuth callback error detection
+  // OS body classes + OAuth callback error detection + initial URL routing
   useEffect(() => {
     document.body.classList.add('os-' + osInfo.os);
     if (osInfo.mobile) document.body.classList.add('is-mobile');
@@ -163,13 +170,10 @@ function App() {
     document.documentElement.style.setProperty('--bar-h', osInfo.chromeHeight + 'px');
     logger.info('App', 'Studio P initialised', { os: osInfo.os, mobile: osInfo.mobile });
 
-    // Supabase redirects to /auth/callback?error=...#error=... on OAuth failure
     const params = new URLSearchParams(window.location.search);
     const hash   = new URLSearchParams(window.location.hash.slice(1));
 
-    // If there's a ?code= in the URL (OAuth callback) but oauth_pending was lost
-    // (e.g. mobile in-app browsers open a system browser with separate sessionStorage),
-    // set the flag here so INITIAL_SESSION(null) doesn't snap us to the landing page.
+    // Re-arm the oauth_pending flag for mobile in-app browsers that lose sessionStorage.
     if (params.get('code') && !sessionStorage.getItem('oauth_pending')) {
       sessionStorage.setItem('oauth_pending', '1');
     }
@@ -184,29 +188,53 @@ function App() {
       setAuthOpen(true);
       setLoading(false);
     }
+
+    // Restore portal from URL on hard reload (e.g. user bookmarked /admin).
+    const initial = getPageFromPathname(window.location.pathname);
+    if (initial === 'admin' || initial === 'editor' || initial === 'viewer') {
+      setPage(initial);
+    }
+
+    // Browser back/forward button support.
+    const onPop = () => {
+      const p = getPageFromPathname(window.location.pathname);
+      if (p === 'auth/callback' || p === 'auth/reset') return;
+      setPage(p as AppPage);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   // Single source of truth for auth state.
-  // loading is cleared here — never from stale cache.
   useEffect(() => {
     const unsub = authService.onAuthStateChange((profile) => {
       if (profile) {
         sessionStorage.removeItem('oauth_pending');
         setUser(profile);
-        setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
-        setAuthOpen(false);
-        // Clean the callback URL so refresh doesn't re-submit the consumed PKCE code.
-        if (window.location.pathname.includes('auth/callback') || window.location.search.includes('code=')) {
-          window.history.replaceState({}, '', '/');
+
+        // Don't override the reset page — user is temporarily signed in for recovery.
+        if (window.location.pathname.startsWith('/auth/reset')) {
+          setLoading(false);
+          return;
         }
+
+        const portalPage = profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer';
+        setPage(portalPage);
+        setAuthOpen(false);
+
+        // Clean consumed PKCE code from URL.
+        if (window.location.pathname.startsWith('/auth/callback') || window.location.search.includes('code=')) {
+          window.history.replaceState({}, '', `/${portalPage}`);
+        }
+
         logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role });
         setLoading(false);
       } else {
         setUser(null);
-        // Only resolve to landing + clear spinner if we are NOT mid-OAuth.
-        // oauth_pending means the PKCE exchange is still in flight — keep spinner.
         if (sessionStorage.getItem('oauth_pending') !== '1') {
-          setPage('landing');
+          if (!window.location.pathname.startsWith('/auth/')) {
+            setPage('landing');
+          }
           setLoading(false);
         }
       }
@@ -214,11 +242,12 @@ function App() {
     return unsub;
   }, []);
 
-  // Called by AuthModal after email/password or social sign-in resolves locally
   const handleAuth = (profile: UserProfile) => {
     sessionStorage.removeItem('oauth_pending');
     setUser(profile);
-    setPage(profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer');
+    const portalPage = profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer';
+    setPage(portalPage);
+    window.history.pushState({}, '', `/${portalPage}`);
     setAuthOpen(false);
     logger.info('App', 'User signed in via modal', { name: profile.name, role: profile.role });
   };
@@ -228,14 +257,22 @@ function App() {
     sessionStorage.removeItem('oauth_pending');
     setUser(null);
     setPage('landing');
+    window.history.pushState({}, '', '/');
     logger.info('App', 'User signed out');
+  };
+
+  const handleNav = (newPage: AppPage) => {
+    setPage(newPage);
+    window.history.pushState({}, '', newPage === 'landing' ? '/' : `/${newPage}`);
   };
 
   const padTop = osInfo.mobile ? 0 : osInfo.chromeHeight;
   const padBot = 80;
 
-  // Spinner — shown while Supabase resolves the initial auth state.
-  // Displays "SIGNING IN…" only when an OAuth redirect is in progress.
+  // Auth-specific pages render without chrome, regardless of app auth state.
+  if (window.location.pathname.startsWith('/auth/callback')) return <AuthCallbackPage />;
+  if (window.location.pathname.startsWith('/auth/reset'))    return <PasswordResetPage />;
+
   if (loading) {
     const isOAuth = sessionStorage.getItem('oauth_pending') === '1';
     return (
@@ -253,11 +290,11 @@ function App() {
       <MacBar user={user} onSignIn={() => setAuthOpen(true)} onSignOut={handleSignOut} />
 
       {page === 'landing' && <LandingPage onSignIn={() => setAuthOpen(true)} />}
-      {page === 'admin'   && user?.role === 'admin'  && <AdminPortal  user={user} onClose={() => setPage('landing')} />}
-      {page === 'editor'  && user?.role === 'editor' && <EditorPortal user={user} onClose={() => setPage('landing')} />}
-      {page === 'viewer'  && user && <ViewerPortal user={user} onClose={() => setPage('landing')} />}
+      {page === 'admin'   && user?.role === 'admin'  && <AdminPortal  user={user} onClose={() => handleNav('landing')} />}
+      {page === 'editor'  && user?.role === 'editor' && <EditorPortal user={user} onClose={() => handleNav('landing')} />}
+      {page === 'viewer'  && user && <ViewerPortal user={user} onClose={() => handleNav('landing')} />}
 
-      <Dock user={user} page={page} onNav={setPage} />
+      <Dock user={user} page={page} onNav={handleNav} />
 
       {authOpen && (
         <AuthModal

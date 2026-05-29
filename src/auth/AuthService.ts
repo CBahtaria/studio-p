@@ -107,8 +107,6 @@ class AuthService {
   }
 
   private get callbackUrl(): string {
-    const env = import.meta.env.VITE_APP_ENV;
-    if (env === 'production') return 'https://studio-p-prod.vercel.app/auth/callback';
     const base = import.meta.env.VITE_PUBLIC_URL ?? window.location.origin;
     return `${base}/auth/callback`;
   }
