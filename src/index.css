@@ -132,3 +132,16 @@ input,textarea,select{font-family:inherit}
 .log-info .log-mod{color:#52E89A}
 .log-warn .log-mod{color:#FFB347}
 .log-error .log-mod{color:#f87171}
+/* ── Scroll reveals ─────────────────────────────── */
+[data-reveal]{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s cubic-bezier(.16,1,.3,1)}
+[data-reveal].revealed{opacity:1;transform:none}
+/* ── Staggered children ─────────────────────────── */
+.stagger>*{animation:fadeIn .45s both;animation-delay:calc(var(--i,0)*55ms)}
+/* ── Portal page enter ───────────────────────────── */
+.portal-enter{animation:portIn .35s cubic-bezier(.16,1,.3,1) both}
+/* ── Micro-interactions ─────────────────────────── */
+.btn-primary:active{transform:scale(.97)}
+.btn-outline:active{transform:scale(.97)}
+.pc:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.28)}
+/* ── Reduced-motion override ────────────────────── */
+@media(prefers-reduced-motion:reduce){[data-reveal],.stagger>*,.portal-enter{animation:none !important;transition:none !important;transform:none !important;opacity:1 !important}}

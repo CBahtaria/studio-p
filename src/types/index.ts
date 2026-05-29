@@ -96,6 +96,17 @@ export interface LogEntry {
   durationMs?: number;
 }
 
+export interface Service {
+  id: string;
+  name: string;
+  description: string;
+  tag: string;
+  price: number;       // Emalangeni (converted from cents)
+  priceCents: number;  // raw DB value (price_swl)
+  duration: number;    // minutes
+  active: boolean;
+}
+
 export interface PerfMark {
   name: string;
   startMs: number;
