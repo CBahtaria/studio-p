@@ -21,6 +21,12 @@ const NEWS = [
   { title: 'Member spotlight: 1000th cut celebration', desc: 'We honoured our 1000th client with a full ritual', tag: 'COMMUNITY' },
 ];
 
+const PRODUCTS = [
+  { name: 'Signature Pomade', desc: 'Medium hold, high shine. Water-soluble formula for clean restyling.', tag: 'HOLD', price: 'E180' },
+  { name: 'Matte Clay', desc: 'Strong hold, natural finish. Reworkable all-day without residue.', tag: 'TEXTURE', price: 'E165' },
+  { name: 'Texture Spray', desc: 'Lightweight volume and definition. The finisher for every cut.', tag: 'VOLUME', price: 'E140' },
+];
+
 function timeAgo(ts: string): string {
   const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
   if (s < 60) return 'just now';
@@ -162,16 +168,16 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.4em', color: 'var(--brass)', marginBottom: 20, textTransform: 'uppercase' }}>
             Matsapha · Eswatini · Est. 2020
           </div>
-          <h1 style={{
-            fontSize: 'clamp(3.2rem, 10vw, 7.5rem)',
-            fontFamily: 'Cormorant Garamond, serif',
-            fontWeight: 700, lineHeight: .92,
-            color: 'var(--parch)',
-            animation: 'heroText .8s cubic-bezier(.16,1,.3,1) both',
-          }}>
-            MORE THAN<br/>
-            <em style={{ color: 'var(--brass)', fontStyle: 'italic' }}>a haircut.</em><br/>
-            IT'S A CULTURE.
+          <h1 style={{ lineHeight: .90, color: 'var(--parch)', animation: 'heroText .8s cubic-bezier(.16,1,.3,1) both' }}>
+            <span style={{ display: 'block', fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(3.2rem, 10vw, 7.5rem)', letterSpacing: '-.02em' }}>
+              MORE THAN
+            </span>
+            <em style={{ display: 'block', color: 'var(--gold)', fontStyle: 'italic', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: 'clamp(3rem, 9.5vw, 7rem)', lineHeight: 1.0 }}>
+              a haircut.
+            </em>
+            <span style={{ display: 'block', fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(2.5rem, 8vw, 6rem)', letterSpacing: '-.02em' }}>
+              IT'S A CULTURE.
+            </span>
           </h1>
           <p style={{ maxWidth: 500, margin: '28px 0', color: 'var(--stone)', fontSize: 15, lineHeight: 1.7, animation: 'slideUp .6s .2s both' }}>
             Walk in as yourself. Leave as royalty. Fanu's Studio-P is Matsapha's home of precision craftsmanship.
@@ -197,7 +203,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 8, textTransform: 'uppercase' }}>
             The Menu
           </div>
-          <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(1.8rem,4vw,3rem)', fontWeight: 600, marginBottom: 32 }}>
+          <h2 style={{ fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(2rem,4.5vw,3.5rem)', letterSpacing: '-.02em', textTransform: 'uppercase', marginBottom: 32 }}>
             Services
           </h2>
           <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1, background: 'var(--bord)' }}>
@@ -216,7 +222,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 12, lineHeight: 1.5 }}>{s.description}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', color: 'var(--brass)', fontWeight: 600 }}>E{s.price}</span>
+                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', color: 'var(--gold)', fontWeight: 600 }}>E{s.price}</span>
                   <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)' }}>{s.duration} min</span>
                 </div>
               </div>
@@ -283,12 +289,40 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         </div>
       </div>
 
+      {/* Products */}
+      <div style={{ borderTop: '1px solid var(--bord)', maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 8, textTransform: 'uppercase' }}>
+          The Collection
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
+          <h2 style={{ fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(2rem,4.5vw,3.5rem)', letterSpacing: '-.02em', textTransform: 'uppercase', lineHeight: .9 }}>
+            Elevate Your<br/>Daily Routine
+          </h2>
+          <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--stone)', maxWidth: 280, textAlign: 'right', lineHeight: 1.7 }}>
+            Studio P signature grooming essentials — precision in every product.
+          </p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, background: 'var(--bord)' }}>
+          {PRODUCTS.map((p, i) => (
+            <div key={i} style={{ background: 'var(--ink2)', padding: 28, transition: 'background .2s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--ink3)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--ink2)')}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.2em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>{p.tag}</div>
+              <div style={{ fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: '1.6rem', letterSpacing: '-.02em', textTransform: 'uppercase', marginBottom: 10, lineHeight: 1 }}>{p.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 20, lineHeight: 1.6 }}>{p.desc}</div>
+              <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.9rem', color: 'var(--gold)', fontWeight: 600 }}>{p.price}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* CTA */}
       <div style={{ borderTop: '1px solid var(--bord)', padding: '80px 32px', textAlign: 'center' }}>
-        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(2rem, 5vw, 4rem)', marginBottom: 24 }}>
-          Your Chair <em style={{ color: 'var(--brass)' }}>Awaits.</em>
+        <h2 style={{ fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(2.2rem, 5vw, 4.5rem)', letterSpacing: '-.02em', textTransform: 'uppercase', marginBottom: 24 }}>
+          Your Chair{' '}
+          <em style={{ color: 'var(--gold)', fontStyle: 'italic', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '1.1em' }}>Awaits.</em>
         </h2>
-        <button className="btn-primary" onClick={onSignIn}>Create Free Account →</button>
+        <button className="btn-primary" onClick={onSignIn}>Join the Studio</button>
       </div>
     </div>
   );
