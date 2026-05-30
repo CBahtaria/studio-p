@@ -11,6 +11,8 @@ import { logger } from '@/core/logger';
 import { AuthModal } from '@/components/AuthModal';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { PasswordResetPage } from '@/pages/PasswordResetPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
+import { TermsPage } from '@/pages/TermsPage';
 import { DevLogPanel } from '@/components/DevLogPanel';
 import { LandingPage } from '@/portals/LandingPage';
 import { AdminPortal } from '@/portals/AdminPortal';
@@ -302,6 +304,8 @@ function App() {
   // Auth-specific pages render without chrome, regardless of app auth state.
   if (window.location.pathname.startsWith('/auth/callback')) return <AuthCallbackPage />;
   if (window.location.pathname.startsWith('/auth/reset'))    return <PasswordResetPage />;
+  if (window.location.pathname === '/privacy') return <PrivacyPage />;
+  if (window.location.pathname === '/terms')   return <TermsPage />;
 
   if (loading) {
     const isOAuth = sessionStorage.getItem('oauth_pending') === '1';

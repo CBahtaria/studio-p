@@ -306,7 +306,10 @@ function SignUpForm({ onSuccess }: { onSuccess: (profile: UserProfile, needsVeri
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 4 }}>
         <input {...register('terms')} type="checkbox" id="terms" style={{ marginTop: 2, accentColor: 'var(--brass)', cursor: 'pointer' }}/>
         <label htmlFor="terms" style={{ fontSize: 11, color: 'var(--stone)', lineHeight: 1.6, cursor: 'pointer' }}>
-          I agree to Studio P's <span style={{ color: 'var(--brass)' }}>Terms of Service</span> and <span style={{ color: 'var(--brass)' }}>Privacy Policy</span>
+          I agree to Studio P's{' '}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brass)', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>Terms of Service</a>
+          {' '}and{' '}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brass)', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>Privacy Policy</a>
         </label>
       </div>
       {errors.terms && <p style={errStyle}>{errors.terms.message}</p>}
