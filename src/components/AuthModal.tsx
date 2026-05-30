@@ -49,17 +49,18 @@ const ROLES = [
 type RoleId = typeof ROLES[number]['id'];
 
 // ── Sign In Form ────────────────────────────────
-function SignInForm({ onSuccess, onForgotPassword, onVerified }: {
+function SignInForm({ onSuccess, onForgotPassword, onVerified, selectedRole, onRoleChange }: {
   onSuccess: (profile: UserProfile) => void;
   onForgotPassword: (email: string) => void;
   onVerified?: () => void;
+  selectedRole: RoleId;
+  onRoleChange: (r: RoleId) => void;
 }) {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | ''>('');
   const [pendingEmail, setPendingEmail] = useState('');
   const [step, setStep] = useState<'role' | 'form' | 'verify'>('role');
-  const [selectedRole, setSelectedRole] = useState<RoleId | null>(null);
 
   const { register, handleSubmit, formState: { errors }, getValues } = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
@@ -93,7 +94,7 @@ function SignInForm({ onSuccess, onForgotPassword, onVerified }: {
         {ROLES.map(r => (
           <button
             key={r.id}
-            onClick={() => { setSelectedRole(r.id); setStep('form'); }}
+            onClick={() => { onRoleChange(r.id); setStep('form'); }}
             style={{
               background: 'var(--ink3)', border: `1px solid ${r.color}33`,
               borderRadius: 10, padding: '14px 16px', textAlign: 'left',
@@ -232,7 +233,7 @@ function SignInForm({ onSuccess, onForgotPassword, onVerified }: {
 }
 
 // ── Sign Up Form ────────────────────────────────
-function SignUpForm({ onSuccess }: { onSuccess: (profile: UserProfile, needsVerification: boolean, email: string) => void }) {
+function SignUpForm({ onSuccess, role }: { onSuccess: (profile: UserProfile, needsVerification: boolean, email: string) => void; role: RoleId }) {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
   const [pwValue, setPwValue] = useState('');
@@ -254,6 +255,7 @@ function SignUpForm({ onSuccess }: { onSuccess: (profile: UserProfile, needsVeri
         email: data.email,
         password: data.password,
         phone: data.phone || undefined,
+        role: role === 'admin' ? 'viewer' : role, // admin only via admin panel
       });
       onSuccess(result.profile, !!result.needsVerification, data.email);
     } catch (e) {
@@ -263,8 +265,16 @@ function SignUpForm({ onSuccess }: { onSuccess: (profile: UserProfile, needsVeri
     }
   };
 
+  const roleData = ROLES.find(r => r.id === role);
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {roleData && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: `color-mix(in srgb, ${roleData.color} 10%, var(--ink3))`, borderRadius: 8, border: `1px solid ${roleData.color}44`, marginBottom: 2 }}>
+          <span style={{ fontSize: 14 }}>{roleData.icon}</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: roleData.color, letterSpacing: '.1em' }}>{roleData.label.toUpperCase()}</span>
+        </div>
+      )}
       <div>
         <label style={labelStyle}>Full Name</label>
         <input {...register('name')} placeholder="Your name" style={fieldStyle} autoComplete="name"/>
@@ -375,6 +385,8 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetError, setResetError] = useState('');
+  // Shared role selection — used by both sign-in and sign-up forms
+  const [selectedRole, setSelectedRole] = useState<RoleId>('viewer');
 
   const handleSignUpSuccess = (profile: UserProfile, needsVerification: boolean, email: string) => {
     if (needsVerification) {
@@ -450,10 +462,12 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
               onSuccess={onSuccess}
               onForgotPassword={(email) => { setResetEmail(email); setStep('forgot-password'); }}
               onVerified={onClose}
+              selectedRole={selectedRole}
+              onRoleChange={setSelectedRole}
             />
           )}
           {step === 'form' && tab === 'signup' && (
-            <SignUpForm onSuccess={handleSignUpSuccess} />
+            <SignUpForm onSuccess={handleSignUpSuccess} role={selectedRole} />
           )}
           {step === 'form' && tab === 'demo' && isDemoEnabled && (
             <DemoForm onSuccess={onSuccess} />
