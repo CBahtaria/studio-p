@@ -332,6 +332,25 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         </h2>
         <button className="btn-primary" onClick={onSignIn}>Join the Studio</button>
       </div>
+
+      {/* Footer */}
+      <div style={{ borderTop: '1px solid var(--bord)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.2em' }}>
+          © {new Date().getFullYear()} STUDIO P · ESWATINI
+        </span>
+        <div style={{ display: 'flex', gap: 24 }}>
+          <a href="/privacy" style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.15em', textDecoration: 'none', textTransform: 'uppercase' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--brass)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--stone)')}>
+            Privacy Policy
+          </a>
+          <a href="/terms" style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.15em', textDecoration: 'none', textTransform: 'uppercase' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--brass)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--stone)')}>
+            Terms of Service
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
