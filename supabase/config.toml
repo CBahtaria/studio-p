@@ -50,10 +50,10 @@ enable_confirmations = true
 secure_password_change = true
 
 [auth.email.smtp]
-host = "smtp.resend.com"
-port = 465
-user = "resend"
-pass = "env(RESEND_SMTP_PASSWORD)"
+host = "smtp.gmail.com"
+port = 587
+user = "charleskris9@gmail.com"
+pass = "env(GMAIL_APP_PASSWORD)"
 sender_name = "Studio P"
 
 [auth.sms]
