@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const r = await fetch(`${supabaseUrl}/functions/v1/cleanup-photos`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+    headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
   });
 
   res.status(r.ok ? 200 : 502).json({ ok: r.ok });
