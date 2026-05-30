@@ -49,6 +49,13 @@ double_confirm_changes = true
 enable_confirmations = true
 secure_password_change = true
 
+[auth.email.smtp]
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_SMTP_PASSWORD)"
+sender_name = "Studio P"
+
 [auth.sms]
 enable_signup = false
 enable_confirmations = false
