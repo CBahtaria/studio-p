@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useServices } from '@/hooks/useServices';
 import { useReveal } from '@/hooks/useReveal';
+import { logger } from '@/core/logger';
 
 const FALLBACK_BG = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&q=80',
@@ -71,7 +72,6 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
   // Fetch approved media for hero + gallery
   useEffect(() => {
-    // Images for background and gallery
     supabase
       .from('gallery_items')
       .select('url, caption, created_at')
@@ -79,14 +79,19 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       .eq('media_type', 'image')
       .order('created_at', { ascending: false })
       .limit(20)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { logger.warn('LandingPage', 'gallery images fetch failed', { error: error.message }); return; }
         if (data && data.length > 0) {
-          setBgPhotos(shuffle(data.map(d => d.url)));
-          setClientPhotos(data as ClientPhoto[]);
+          const photos: ClientPhoto[] = data.map(d => ({
+            url: d.url as string,
+            caption: d.caption as string | null,
+            created_at: d.created_at as string,
+          }));
+          setBgPhotos(shuffle(photos.map(p => p.url)));
+          setClientPhotos(photos);
         }
       });
 
-    // Videos for hero (newest first, up to 5)
     supabase
       .from('gallery_items')
       .select('url')
@@ -94,8 +99,11 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       .eq('media_type', 'video')
       .order('created_at', { ascending: false })
       .limit(5)
-      .then(({ data }) => {
-        if (data && data.length > 0) setBgVideos(data as VideoItem[]);
+      .then(({ data, error }) => {
+        if (error) { logger.warn('LandingPage', 'gallery videos fetch failed', { error: error.message }); return; }
+        if (data && data.length > 0) {
+          setBgVideos(data.map(d => ({ url: d.url as string })));
+        }
       });
   }, []);
 
@@ -135,7 +143,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         {useVideos ? (
           <video
             key={bgIdx}
-            src={bgItems[bgIdx]}
+            src={bgItems[bgIdx % bgItems.length]}
             autoPlay muted loop playsInline
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -148,7 +156,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         ) : (
           <div style={{
             position: 'absolute', inset: 0,
-            backgroundImage: `url(${bgItems[bgIdx]})`,
+            backgroundImage: `url(${bgItems[bgIdx % bgItems.length]})`,
             backgroundSize: 'cover', backgroundPosition: 'center',
             opacity: bgVisible ? .22 : 0,
             transition: 'opacity .4s ease',
@@ -245,8 +253,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             From the Chair
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-            {clientPhotos.slice(0, 8).map((photo, i) => (
-              <div key={i} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
+            {clientPhotos.slice(0, 8).map((photo) => (
+              <div key={photo.url} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
                 <img
                   src={photo.url}
                   alt={photo.caption ?? 'Studio P client photo'}

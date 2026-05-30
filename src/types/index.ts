@@ -80,6 +80,7 @@ export interface OrchestrationResult {
   rounds: number;
   agents: Agent[];
   issuesFixed: number;
+  reason?: string;
 }
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';

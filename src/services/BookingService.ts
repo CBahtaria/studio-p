@@ -6,11 +6,12 @@
 import type { Booking, Agent, OrchestrationResult, AgentStatus } from '@/types';
 import { logger } from '@/core/logger';
 import { monitor } from '@/core/monitor';
+import { supabase } from '@/lib/supabase';
 
 // ── Agent runner ─────────────────────────────────
 async function runAgent(
   id: string, name: string, icon: string, delayMs: number,
-  workFn: () => Record<string, unknown>
+  workFn: () => Record<string, unknown> | Promise<Record<string, unknown>>
 ): Promise<Agent> {
   const t0 = performance.now();
   await new Promise(r => setTimeout(r, delayMs + Math.random() * 160));
@@ -19,7 +20,7 @@ async function runAgent(
   let status: AgentStatus = 'ok';
 
   try {
-    output = workFn();
+    output = await workFn();
   } catch (e) {
     error = String(e);
     status = 'err';
@@ -84,15 +85,27 @@ export class BookingService {
         riskLevel: 'low',
         checks: ['xss', 'injection', 'format'],
       })),
-      runAgent('database', 'DB Formatter', '🗃️', 260, () => ({
-        table: 'bookings',
-        record: {
-          id: 'BK-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
-          client_id: data.clientId,
-          service: data.service,
-          scheduled_at: `${data.date}T${data.time || '00'}:00`,
-        },
-      })),
+      runAgent('database', 'DB Formatter', '🗃️', 0, async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+        const resp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-booking`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              service: data.service, date: data.date, time: data.time,
+              clientId: data.clientId, email: data.email, phone: data.phone,
+            }),
+          }
+        );
+        const json = await resp.json();
+        if (!resp.ok || !json.approved) throw new Error(json.reason ?? 'Booking rejected');
+        return { table: 'bookings', record: { id: json.bookingId }, scheduledAt: json.scheduledAt };
+      }),
       runAgent('rls', 'RLS Validator', '🛡️', 290, () => ({
         allPassed: true,
         serviceKeyExposed: false,
@@ -110,14 +123,17 @@ export class BookingService {
 
     if (issues.length) {
       logger.warn('BookingService', 'Issues detected, running retry round', { issues });
-      const retries = await Promise.all(
-        issues.map(issue => {
-          const prev = round1.find(r => r.id === issue.agentId)!;
+      // DB agent result is authoritative — never auto-retry it with forced values
+      const retryable = issues.filter(i => i.agentId !== 'database');
+      const retries = (await Promise.all(
+        retryable.map(issue => {
+          const prev = round1.find(r => r.id === issue.agentId);
+          if (!prev) return null;
           return runAgent(prev.id, prev.name + ' ↺', prev.icon, 200, () => ({
             ...prev.output, _fixed: true, complete: true, passed: true, allPassed: true,
           }));
         })
-      );
+      )).filter((r): r is Agent => r !== null);
       finalAgents = round1.map(r => retries.find(rt => rt.id === r.id) ?? r);
       onTick?.({ phase: 'round2', agents: finalAgents, issues });
     }
@@ -134,8 +150,11 @@ export class BookingService {
     onTick?.({ phase: 'complete', agents: allAgents });
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
-    const dbRecord = dbR.output as { record: { id: string } };
-    const bookingId = dbRecord.record?.id ?? 'BK-UNKNOWN';
+    // DB agent result is authoritative — approved only if Edge Function succeeded
+    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
+    const bookingId = dbRecord?.record?.id ?? '';
+    const dbApproved = dbR.status === 'ok' && !!bookingId;
+    const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
     const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
 
     monitor.markEnd('booking.validation');
@@ -143,12 +162,13 @@ export class BookingService {
 
     const result: OrchestrationResult = {
       bookingId,
-      approved: synthOut.allOk,
-      confidence: synthOut.confidence,
+      approved: dbApproved,
+      confidence: dbApproved ? synthOut.confidence : 0,
       parallelMs,
       rounds: synthOut.rounds,
       agents: allAgents,
       issuesFixed: synthOut.issuesFixed,
+      reason: rejectionReason,
     };
 
     logger.info('BookingService', 'Validation complete', {

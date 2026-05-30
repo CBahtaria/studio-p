@@ -23,6 +23,17 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(origin) });
 
   try {
+    // Verify caller JWT
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return new Response(JSON.stringify({ sent: false, reason: 'Unauthorized' }), { status: 401, headers: ch });
+    }
+    const anonClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
+    const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
+    if (authErr || !caller) {
+      return new Response(JSON.stringify({ sent: false, reason: 'Unauthorized' }), { status: 401, headers: ch });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -49,6 +60,14 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ sent: false, reason: 'Booking not found' }), {
         status: 404, headers: ch,
       });
+    }
+
+    // Caller must own the booking or be an admin
+    if (booking.client_id !== caller.id) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', caller.id).single();
+      if (profile?.role !== 'admin') {
+        return new Response(JSON.stringify({ sent: false, reason: 'Forbidden' }), { status: 403, headers: ch });
+      }
     }
 
     const scheduledDate = new Date(booking.scheduled_at);

@@ -6,10 +6,29 @@ import { useState, useEffect } from 'react';
 import type { UserProfile, Agent, OrchestrationResult } from '@/types';
 import { bookingService } from '@/services/BookingService';
 import { monitor } from '@/core/monitor';
+import { logger } from '@/core/logger';
+import { supabase } from '@/lib/supabase';
 import { AgentPanel } from '@/components/AgentPanel';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { ServicesManager } from '@/components/ServicesManager';
 import { useServices } from '@/hooks/useServices';
+
+interface BookingRecord {
+  id: string;
+  service: string;
+  barber: string;
+  scheduled_at: string;
+  price_swl: number;
+  status: string;
+}
+
+interface GalleryItem {
+  id: string;
+  url: string;
+  caption: string | null;
+  approved: boolean;
+  created_at: string;
+}
 
 const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
 
@@ -29,15 +48,17 @@ interface ViewerPortalProps {
 type BookStep = 'select' | 'validating' | 'done';
 
 export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
-  const [section, setSection] = useState<'home' | 'book' | 'history'>('home');
-  const [svc, setSvc]         = useState('');
-  const [date, setDate]       = useState('');
-  const [time, setTime]       = useState('');
-  const [agents, setAgents]   = useState<Agent[]>([]);
-  const [result, setResult]   = useState<OrchestrationResult | null>(null);
-  const [step, setStep]       = useState<BookStep>('select');
-  const [bgIdx]               = useState(() => Math.floor(Math.random() * HERO_IMGS.length));
-  const { services }          = useServices();
+  const [section, setSection]   = useState<'home' | 'book' | 'history'>('home');
+  const [svc, setSvc]           = useState('');
+  const [date, setDate]         = useState('');
+  const [time, setTime]         = useState('');
+  const [agents, setAgents]     = useState<Agent[]>([]);
+  const [result, setResult]     = useState<OrchestrationResult | null>(null);
+  const [step, setStep]         = useState<BookStep>('select');
+  const [bgIdx]                 = useState(() => Math.floor(Math.random() * HERO_IMGS.length));
+  const [history, setHistory]   = useState<BookingRecord[]>([]);
+  const [histLoading, setHistLoading] = useState(false);
+  const { services }            = useServices();
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--view-bg)');
@@ -47,21 +68,41 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
     document.documentElement.style.setProperty('--port-a2',   'var(--view-a2)');
     document.documentElement.style.setProperty('--port-t',    'var(--view-t)');
     document.documentElement.style.setProperty('--port-m',    'var(--view-m)');
+
+    setHistLoading(true);
+    supabase
+      .from('bookings')
+      .select('id, service, barber, scheduled_at, price_swl, status')
+      .eq('client_id', user.id)
+      .order('scheduled_at', { ascending: false })
+      .limit(20)
+      .then(({ data, error }) => {
+        if (error) logger.warn('ViewerPortal', 'history fetch failed', { error: error.message });
+        else setHistory((data ?? []) as BookingRecord[]);
+        setHistLoading(false);
+      });
+
     return () => ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
       .forEach(v => document.documentElement.style.removeProperty(v));
-  }, []);
+  }, [user.id]);
 
   const bookNow = async () => {
     if (!svc || !date || !time) return;
     setStep('validating');
     setAgents([]);
-    const res = await bookingService.validate(
-      { service: svc, date, time, email: user.email, clientId: user.id },
-      ({ agents }) => setAgents(agents ?? [])
-    );
-    setResult(res);
-    setStep('done');
-    monitor.recordMetric('booking.flow.complete', 1);
+    try {
+      const res = await bookingService.validate(
+        { service: svc, date, time, email: user.email, clientId: user.id },
+        ({ agents }) => setAgents(agents ?? [])
+      );
+      setResult(res);
+    } catch (e) {
+      logger.error('ViewerPortal', 'Booking validation failed', { error: String(e) });
+      setResult({ bookingId: '', approved: false, confidence: 0, parallelMs: 0, rounds: 1, agents: [], issuesFixed: 0, reason: 'Unexpected error — please try again.' });
+    } finally {
+      setStep('done');
+      monitor.recordMetric('booking.flow.complete', 1);
+    }
   };
 
   const reset = () => { setSvc(''); setDate(''); setTime(''); setAgents([]); setResult(null); setStep('select'); };
@@ -69,7 +110,7 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
   const tierLabel = user.memberTier
     ? user.memberTier.charAt(0).toUpperCase() + user.memberTier.slice(1)
     : 'Bronze';
-  const firstName = user.name.split(' ')[0];
+  const firstName = user.name?.split(' ')[0] || 'Member';
 
   return (
     <div className="portal-enter" style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--view-bg)' }}>
@@ -201,7 +242,7 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
 
                 <button className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', opacity: svc && date && time ? 1 : .45 }}
                   onClick={bookNow} disabled={!svc || !date || !time}>
-                  Run Parallel Validation →
+                  Check Availability →
                 </button>
               </div>
             )}
@@ -227,6 +268,19 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
                     </button>
                   </div>
                 )}
+                {step === 'done' && result && !result.approved && (
+                  <div style={{ textAlign: 'center', marginTop: 8, padding: '16px', background: 'rgba(248,113,113,.08)', borderRadius: 8, border: '1px solid rgba(248,113,113,.25)' }}>
+                    <div style={{ color: '#f87171', fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.15em', marginBottom: 8 }}>
+                      SLOT UNAVAILABLE
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--port-m)', marginBottom: 14, lineHeight: 1.6 }}>
+                      {result.reason ?? 'This time slot could not be booked. Please choose a different time.'}
+                    </div>
+                    <button onClick={reset} className="btn-outline" style={{ fontSize: 10 }}>
+                      Try Another Slot
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -236,23 +290,30 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
         {section === 'history' && (
           <div>
             <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--brass)', marginBottom: 20, textTransform: 'uppercase' }}>Past Visits</div>
-            {[
-              { service: 'Signature Fade', date: 'May 10, 2025', price: 'E120', status: 'completed', barber: 'P. Dlamini' },
-              { service: 'Taper & Define', date: 'Apr 03, 2025', price: 'E100', status: 'completed', barber: 'P. Dlamini' },
-              { service: 'Full Package',   date: 'Mar 01, 2025', price: 'E220', status: 'completed', barber: 'P. Dlamini' },
-            ].map((b, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 0', borderBottom: '1px solid var(--view-b)' }}>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--view-b)', lineHeight: 1, width: 32, textAlign: 'center' }}>{String(i + 1).padStart(2, '0')}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--view-t)' }}>{b.service}</div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--view-m)', marginTop: 3, letterSpacing: '.06em' }}>{b.barber} · {b.date}</div>
+            {histLoading && (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--view-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>Loading…</div>
+            )}
+            {!histLoading && history.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--view-m)', fontSize: 13 }}>No bookings yet — book your first cut above.</div>
+            )}
+            {!histLoading && history.map((b, i) => {
+              const d = new Date(b.scheduled_at);
+              const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+              const timeStr = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+              return (
+                <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 0', borderBottom: '1px solid var(--view-b)' }}>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--view-b)', lineHeight: 1, width: 32, textAlign: 'center' }}>{String(i + 1).padStart(2, '0')}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--view-t)' }}>{b.service}</div>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--view-m)', marginTop: 3, letterSpacing: '.06em' }}>{b.barber} · {dateStr} {timeStr}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: 'var(--brass)', fontWeight: 600 }}>E{(b.price_swl / 100).toFixed(0)}</div>
+                    <span className={`bkst ${b.status}`}>{b.status}</span>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: 'var(--brass)', fontWeight: 600 }}>{b.price}</div>
-                  <span className={`bkst ${b.status}`}>{b.status}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -271,12 +332,14 @@ interface EditorPortalProps {
 type EditorSection = 'posts' | 'services' | 'media';
 
 export function EditorPortal({ user, onClose }: EditorPortalProps) {
-  const [section, setSection] = useState<EditorSection>('posts');
+  const [section, setSection]     = useState<EditorSection>('posts');
   const [posts] = useState([
     { id: 'p1', author: user.name, text: 'Fresh fade of the day. Precision work.', likes: 12, tag: 'CULTURE' },
     { id: 'p2', author: user.name, text: 'New styling tips: hot towel ritual — a thread.', likes: 8, tag: 'TIPS' },
   ]);
   const [bgIdx] = useState(1);
+  const [mediaQueue, setMediaQueue]   = useState<GalleryItem[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--edit-bg)');
@@ -286,6 +349,20 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
     document.documentElement.style.setProperty('--port-a2',   'var(--edit-a2)');
     document.documentElement.style.setProperty('--port-t',    'var(--edit-t)');
     document.documentElement.style.setProperty('--port-m',    'var(--edit-m)');
+
+    setMediaLoading(true);
+    supabase
+      .from('gallery_items')
+      .select('id, url, caption, approved, created_at')
+      .eq('approved', false)
+      .order('created_at', { ascending: false })
+      .limit(30)
+      .then(({ data, error }) => {
+        if (error) logger.warn('EditorPortal', 'media queue fetch failed', { error: error.message });
+        else setMediaQueue((data ?? []) as GalleryItem[]);
+        setMediaLoading(false);
+      });
+
     return () => ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
       .forEach(v => document.documentElement.style.removeProperty(v));
   }, []);
@@ -351,7 +428,7 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
               <div style={{ padding: '4px 18px' }}>
                 {posts.map(p => (
                   <div key={p.id} className="bki">
-                    <div className="bkav" style={{ background: 'var(--edit-b)' }}>{user.name[0]}</div>
+                    <div className="bkav" style={{ background: 'var(--edit-b)' }}>{user.name?.[0] ?? '?'}</div>
                     <div style={{ flex: 1 }}>
                       <div className="bkn">{p.text}</div>
                       <div className="bkm">♥ {p.likes} likes · <span style={{ color: 'var(--brass)', letterSpacing: '.1em' }}>{p.tag}</span></div>
@@ -378,24 +455,47 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
         {section === 'media' && (
           <div>
             <div style={{ borderTop: '1px solid var(--edit-b)', paddingTop: 24 }}>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>Media Queue</div>
-              <div className="gport">
-                {[
-                  'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=300&q=70',
-                  'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&q=70',
-                  'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=300&q=70',
-                ].map((src, i) => (
-                  <div key={i} className="gpimg">
-                    <img src={src} alt={`media ${i}`} loading="lazy"/>
-                    <div className="gpov">
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }}>✓</button>
-                        <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }}>✗</button>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 16, textTransform: 'uppercase' }}>
+                Pending Approval — {mediaQueue.length} item{mediaQueue.length !== 1 ? 's' : ''}
+              </div>
+              {mediaLoading && (
+                <div style={{ textAlign: 'center', padding: 32, color: 'var(--edit-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>Loading…</div>
+              )}
+              {!mediaLoading && mediaQueue.length === 0 && (
+                <div style={{ textAlign: 'center', padding: 32, color: 'var(--edit-m)', fontSize: 13 }}>No items pending review.</div>
+              )}
+              {!mediaLoading && mediaQueue.length > 0 && (
+                <div className="gport">
+                  {mediaQueue.map(item => (
+                    <div key={item.id} className="gpimg">
+                      {item.url.includes('/studio-media/') ? (
+                        <video src={item.url} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <img src={item.url} alt={item.caption ?? 'pending media'} loading="lazy"/>
+                      )}
+                      <div className="gpov">
+                        {item.caption && (
+                          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.8)', marginBottom: 4, fontFamily: 'DM Mono, monospace', letterSpacing: '.06em', padding: '0 4px' }}>
+                            {item.caption}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 5 }}>
+                          <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }} onClick={async () => {
+                            const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
+                            if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
+                            else logger.error('EditorPortal', 'approve failed', { error: error.message });
+                          }}>✓</button>
+                          <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }} onClick={async () => {
+                            const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
+                            if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
+                            else logger.error('EditorPortal', 'reject failed', { error: error.message });
+                          }}>✗</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

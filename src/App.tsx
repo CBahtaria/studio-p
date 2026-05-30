@@ -20,17 +20,18 @@ import './index.css';
 const isProduction = import.meta.env.VITE_APP_ENV === 'production';
 
 // ── Error Boundary ────────────────────────────────
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
-  componentDidCatch(error: Error, info: ErrorInfo) { logger.error('ErrorBoundary', error.message, { stack: info.componentStack ?? '' }); }
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
+  state: { error: unknown } = { error: null };
+  static getDerivedStateFromError(error: unknown) { return { error }; }
+  componentDidCatch(error: unknown, info: ErrorInfo) { logger.error('ErrorBoundary', error instanceof Error ? error.message : String(error), { stack: info.componentStack ?? '' }); }
   render() {
     if (this.state.error) {
+      const msg = this.state.error instanceof Error ? this.state.error.message : String(this.state.error);
       return (
         <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', color: 'var(--parch)', padding: 32, flexDirection: 'column', gap: 16, textAlign: 'center' }}>
           <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 48, color: 'var(--brass)' }}>P</div>
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '.2em', color: '#f87171' }}>SOMETHING WENT WRONG</div>
-          <div style={{ fontSize: 13, color: 'var(--stone)', maxWidth: 400, lineHeight: 1.6 }}>{(this.state.error as Error).message}</div>
+          <div style={{ fontSize: 13, color: 'var(--stone)', maxWidth: 400, lineHeight: 1.6 }}>{msg}</div>
           <button onClick={() => window.location.reload()} style={{ background: 'var(--brass)', color: 'var(--ink)', border: 'none', padding: '10px 24px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.2em', cursor: 'pointer', marginTop: 8 }}>
             RELOAD PAGE
           </button>
@@ -97,6 +98,26 @@ function MacBar({ user, onSignIn, onSignOut }: { user: UserProfile | null; onSig
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--stone)'; e.currentTarget.style.borderColor = 'var(--bord2)'; }}
         >{user ? 'Sign Out' : 'Sign In'}</button>
       </div>
+    </div>
+  );
+}
+
+// ── Mobile sign-in button (shown only when logged out on mobile) ───
+function MobileSignIn({ onSignIn }: { onSignIn: () => void }) {
+  if (!osInfo.mobile) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: 16, right: 16,
+      zIndex: 200,
+    }}>
+      <button onClick={onSignIn} style={{
+        background: 'var(--brass)', color: 'var(--ink)',
+        border: 'none', borderRadius: 24, padding: '12px 22px',
+        fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.2em',
+        cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,.4)',
+      }}>
+        SIGN IN
+      </button>
     </div>
   );
 }
@@ -207,7 +228,7 @@ function App() {
 
   // Single source of truth for auth state.
   useEffect(() => {
-    const unsub = authService.onAuthStateChange((profile) => {
+    const unsub = authService.onAuthStateChange((profile, event) => {
       if (profile) {
         sessionStorage.removeItem('oauth_pending');
         setUser(profile);
@@ -222,19 +243,18 @@ function App() {
         const isOAuthReturn = window.location.pathname.startsWith('/auth/callback') || window.location.search.includes('code=');
         const isAtPortalUrl = (['admin', 'editor', 'viewer'] as string[]).includes(window.location.pathname.slice(1));
 
-        if (isOAuthReturn || isAtPortalUrl) {
-          // Navigating in from OAuth or a bookmarked portal URL — go straight to portal.
+        // SIGNED_IN covers email sign-in from '/'; isOAuthReturn covers Google/Apple; isAtPortalUrl covers bookmarked URLs.
+        if (event === 'SIGNED_IN' || isOAuthReturn || isAtPortalUrl) {
           setPage(portalPage);
           setAuthOpen(false);
           if (isOAuthReturn) {
             window.history.replaceState({}, '', `/${portalPage}`);
+          } else if (event === 'SIGNED_IN' && !isAtPortalUrl) {
+            window.history.pushState({}, '', `/${portalPage}`);
           }
         }
-        // else: user has an active session at root or via email sign-in.
-        // Do NOT close the modal here — handleAuth will close it after navigation.
-        // Do NOT setPage here — handleAuth will push the portal URL.
 
-        logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role });
+        logger.info('App', 'Auth: signed in', { name: profile.name, role: profile.role, event });
         setLoading(false);
       } else {
         setUser(null);
@@ -260,7 +280,11 @@ function App() {
 
   const handleSignOut = async () => {
     sessionStorage.removeItem('oauth_pending');
-    await authService.signOut();
+    try {
+      await authService.signOut();
+    } catch (e) {
+      logger.error('App', 'Sign-out error', { error: String(e) });
+    }
     setUser(null);
     setPage('landing');
     window.history.pushState({}, '', '/');
@@ -301,6 +325,7 @@ function App() {
       {page === 'viewer'  && user && <ViewerPortal user={user} onClose={() => handleNav('landing')} />}
 
       <Dock user={user} page={page} onNav={handleNav} />
+      {!user && <MobileSignIn onSignIn={() => setAuthOpen(true)} />}
 
       {authOpen && (
         <AuthModal

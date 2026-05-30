@@ -13,9 +13,33 @@ interface PhotoUploadProps {
 }
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const ALLOWED_VIDEO_TYPES = ['image/gif', 'video/mp4', 'video/webm'];
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 const IMAGE_SIZE_LIMIT = 10 * 1024 * 1024;   // 10 MB
 const VIDEO_SIZE_LIMIT = 50 * 1024 * 1024;   // 50 MB
+
+// Magic-byte signatures: [offset, bytes]
+const MAGIC: Array<{ type: string; offset: number; bytes: number[] }> = [
+  { type: 'image/jpeg', offset: 0, bytes: [0xFF, 0xD8, 0xFF] },
+  { type: 'image/png',  offset: 0, bytes: [0x89, 0x50, 0x4E, 0x47] },
+  { type: 'image/webp', offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
+  { type: 'video/mp4',  offset: 4, bytes: [0x66, 0x74, 0x79, 0x70] }, // ftyp box
+  { type: 'video/webm', offset: 0, bytes: [0x1A, 0x45, 0xDF, 0xA3] },
+];
+
+function validateMagicBytes(file: File): Promise<boolean> {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const buf = new Uint8Array(e.target?.result as ArrayBuffer);
+      const match = MAGIC.find(m => m.type === file.type);
+      if (!match) { resolve(false); return; }
+      const ok = match.bytes.every((b, i) => buf[match.offset + i] === b);
+      resolve(ok);
+    };
+    reader.onerror = () => resolve(false);
+    reader.readAsArrayBuffer(file.slice(0, 16));
+  });
+}
 
 function applyWatermark(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -74,6 +98,11 @@ export function PhotoUpload({ userId }: PhotoUploadProps) {
 
     if (!isImage && !isVideo) {
       setStatus('error'); setMsg('Please select an image (JPEG/PNG/WebP) or video (MP4/WebM)'); return;
+    }
+
+    const magicOk = await validateMagicBytes(file);
+    if (!magicOk) {
+      setStatus('error'); setMsg('File content does not match its type — please use a real image or video file'); return;
     }
     if (isImage && file.size > IMAGE_SIZE_LIMIT) {
       setStatus('error'); setMsg('Image must be under 10 MB'); return;

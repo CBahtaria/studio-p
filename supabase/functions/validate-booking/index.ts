@@ -35,6 +35,17 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Verify caller JWT before any data operation
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return new Response(JSON.stringify({ approved: false, reason: 'Unauthorized' }), { status: 401, headers: ch });
+    }
+    const anonClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
+    const { data: { user: caller }, error: authErr } = await anonClient.auth.getUser(token);
+    if (authErr || !caller) {
+      return new Response(JSON.stringify({ approved: false, reason: 'Unauthorized' }), { status: 401, headers: ch });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -45,6 +56,11 @@ Deno.serve(async (req: Request) => {
 
     if (!parsed.success) {
       return new Response(JSON.stringify({ approved: false, reason: 'Invalid request', errors: parsed.error.issues }), { status: 400, headers: ch });
+    }
+
+    // Caller must match the clientId they're booking for
+    if (caller.id !== parsed.data.clientId) {
+      return new Response(JSON.stringify({ approved: false, reason: 'Forbidden' }), { status: 403, headers: ch });
     }
 
     const { service, date, time, clientId } = parsed.data;
@@ -84,7 +100,7 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ approved: false, reason: 'Time slot is already booked' }), { status: 409, headers: ch });
     }
 
-    const bookingId = 'BK-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const bookingId = 'BK-' + crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
 
     const { data: profile } = await supabase
       .from('profiles')
