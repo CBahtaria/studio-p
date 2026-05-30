@@ -32,7 +32,7 @@ class AuthService {
       email: data.email,
       password: data.password,
       options: {
-        data: { name: data.name, phone: data.phone ?? null },
+        data: { name: data.name, phone: data.phone ?? null, role: data.role ?? 'viewer' },
         emailRedirectTo: `${import.meta.env.VITE_PUBLIC_URL ?? window.location.origin}/auth/callback`,
       },
     });
@@ -243,12 +243,15 @@ class AuthService {
 
     const email = user?.email ?? '';
 
+    // Only allow viewer or editor from metadata; admin must be set via admin panel.
+    const metaRole: UserProfile['role'] = (meta.role === 'editor') ? 'editor' : 'viewer';
+
     const fallback: UserProfile = {
       id: userId,
       name,
       email,
       avatar: (meta.avatar_url as string) ?? undefined,
-      role: 'viewer',
+      role: metaRole,
       provider: (user?.app_metadata?.provider as UserProfile['provider']) ?? 'email',
       memberTier: 'bronze',
       visitCount: 0,
@@ -265,7 +268,7 @@ class AuthService {
       email: fallback.email,
       avatar: fallback.avatar ?? null,
       provider: fallback.provider,
-      role: 'viewer',
+      role: metaRole,
       member_tier: 'bronze',
     }, { onConflict: 'id', ignoreDuplicates: true });
 

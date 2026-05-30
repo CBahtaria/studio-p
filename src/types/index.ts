@@ -41,6 +41,7 @@ export interface SignUpData {
   email: string;
   password: string;
   phone?: string;
+  role?: 'viewer' | 'editor';
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
