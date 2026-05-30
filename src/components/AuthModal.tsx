@@ -405,7 +405,10 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
       await authService.resetPassword(resetEmail);
       setStep('reset-sent');
     } catch (e) {
-      setResetError(e instanceof Error ? e.message : 'Failed to send reset email');
+      const msg = e instanceof Error ? e.message : '';
+      // Ignore aborted fetches (modal closed while request was in-flight)
+      if (msg === 'Failed to fetch' || (e instanceof Error && e.name === 'AbortError')) return;
+      setResetError(msg || 'Failed to send reset email');
     } finally {
       setResetLoading(false);
     }
