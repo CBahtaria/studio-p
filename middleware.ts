@@ -47,11 +47,11 @@ export default function middleware(req: Request): Response | undefined {
   const ip = getIP(req);
 
   if (pathname.startsWith('/api/')) {
-    const { limited, remaining } = isRateLimited(`api:${ip}`, 60, 60 * 1000);
+    const { limited } = isRateLimited(`api:${ip}`, 60, 60 * 1000);
     if (limited) return tooMany(60, 60);
-    const res = new Response(null, { status: 200 });
-    res.headers.set('X-RateLimit-Remaining', String(remaining));
-    return res;
+    // Return undefined → Vercel passes the request through to the function.
+    // (Returning any Response here would short-circuit the handler entirely.)
+    return undefined;
   }
 }
 
