@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
+import { authService } from '@/auth/AuthService';
 import { logger } from '@/core/logger';
 
 const schema = z.object({
@@ -59,6 +60,13 @@ export function PasswordResetPage() {
       if (error) throw error;
       logger.info('PasswordResetPage', 'Password updated successfully');
       setStep('success');
+      // Navigate to portal after showing success — Auth guard on /auth/reset prevents
+      // onAuthStateChange from navigating, so we must do it here.
+      setTimeout(() => {
+        const profile = authService.getProfile();
+        const portal = profile?.role === 'admin' ? 'admin' : profile?.role === 'editor' ? 'editor' : 'viewer';
+        window.location.replace(profile ? `/${portal}` : '/');
+      }, 2000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Password update failed';
       logger.error('PasswordResetPage', 'Update failed', { msg });
@@ -130,13 +138,13 @@ export function PasswordResetPage() {
             <div style={{ fontSize: 40, marginBottom: 14, color: 'var(--brass)' }}>✓</div>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Password updated</div>
             <p style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 20, lineHeight: 1.6 }}>
-              Your password has been reset. You can now sign in with your new password.
+              Your password has been reset. Taking you to your portal…
             </p>
             <a href="/" style={{
               display: 'inline-block', background: 'var(--brass)', color: 'var(--ink)',
               padding: '10px 24px', borderRadius: 6, fontFamily: 'DM Mono, monospace',
               fontSize: 10, letterSpacing: '.15em', textTransform: 'uppercase', textDecoration: 'none',
-            }}>Return Home →</a>
+            }}>Go Now →</a>
           </div>
         )}
 

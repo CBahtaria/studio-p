@@ -16,7 +16,7 @@ import {
 } from '@/lib/validation';
 
 type Tab = 'signin' | 'signup' | 'demo';
-type Step = 'form' | 'loading' | 'verify-email' | 'reset-sent' | 'profile-complete';
+type Step = 'form' | 'loading' | 'verify-email' | 'forgot-password' | 'reset-sent' | 'profile-complete';
 
 interface AuthModalProps {
   onSuccess: (profile: UserProfile) => void;
@@ -40,18 +40,28 @@ const labelStyle: React.CSSProperties = {
   color: 'var(--stone)', display: 'block', marginBottom: 5, textTransform: 'uppercase',
 };
 
+// ── Role data used by the sign-in picker ─────────
+const ROLES = [
+  { id: 'viewer' as const, label: 'Client',  sub: 'Book your next cut',    icon: '✨', color: 'var(--view-a)' },
+  { id: 'editor' as const, label: 'Barber',  sub: 'Manage your studio',    icon: '🎨', color: 'var(--edit-a)' },
+  { id: 'admin'  as const, label: 'Admin',   sub: 'Full system access',    icon: '⚡', color: 'var(--admin-a)' },
+] as const;
+type RoleId = typeof ROLES[number]['id'];
+
 // ── Sign In Form ────────────────────────────────
-function SignInForm({ onSuccess, onForgotPassword }: {
+function SignInForm({ onSuccess, onForgotPassword, onVerified }: {
   onSuccess: (profile: UserProfile) => void;
-  onForgotPassword: () => void;
+  onForgotPassword: (email: string) => void;
+  onVerified?: () => void;
 }) {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | ''>('');
   const [pendingEmail, setPendingEmail] = useState('');
-  const [step, setStep] = useState<'form' | 'verify'>('form');
+  const [step, setStep] = useState<'role' | 'form' | 'verify'>('role');
+  const [selectedRole, setSelectedRole] = useState<RoleId | null>(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SignInFormData>({
+  const { register, handleSubmit, formState: { errors }, getValues } = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
   });
 
@@ -73,18 +83,66 @@ function SignInForm({ onSuccess, onForgotPassword }: {
     }
   };
 
+  // ── Step: role picker ───────────────────────
+  if (step === 'role') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.2em', color: 'var(--stone)', textAlign: 'center', marginBottom: 6 }}>
+          WHO ARE YOU?
+        </p>
+        {ROLES.map(r => (
+          <button
+            key={r.id}
+            onClick={() => { setSelectedRole(r.id); setStep('form'); }}
+            style={{
+              background: 'var(--ink3)', border: `1px solid ${r.color}33`,
+              borderRadius: 10, padding: '14px 16px', textAlign: 'left',
+              cursor: 'pointer', transition: 'border-color .15s, background .15s',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = r.color; e.currentTarget.style.background = `color-mix(in srgb, ${r.color} 8%, var(--ink3))`; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = `${r.color}33`; e.currentTarget.style.background = 'var(--ink3)'; }}
+          >
+            <span style={{ fontSize: 22, lineHeight: 1 }}>{r.icon}</span>
+            <div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: r.color, marginBottom: 2, letterSpacing: '.06em' }}>{r.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--stone)' }}>{r.sub}</div>
+            </div>
+            <span style={{ marginLeft: 'auto', color: 'var(--stone)', fontSize: 14, opacity: 0.5 }}>›</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Step: verify ───────────────────────────
   if (step === 'verify') {
     return (
       <EmailVerification
         email={pendingEmail}
-        onVerified={() => setStep('form')}
+        onVerified={() => onVerified ? onVerified() : setStep('form')}
         onBack={() => setStep('form')}
       />
     );
   }
 
+  const role = ROLES.find(r => r.id === selectedRole);
+
+  // ── Step: credentials form ─────────────────
   return (
     <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {role && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: `color-mix(in srgb, ${role.color} 10%, var(--ink3))`, borderRadius: 8, border: `1px solid ${role.color}44` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14 }}>{role.icon}</span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: role.color, letterSpacing: '.1em' }}>{role.label.toUpperCase()}</span>
+          </div>
+          <button type="button" onClick={() => setStep('role')} style={{ background: 'none', border: 'none', color: 'var(--stone)', fontSize: 10, cursor: 'pointer', minHeight: 'unset', fontFamily: 'DM Mono, monospace' }}>
+            Change
+          </button>
+        </div>
+      )}
+
       <div>
         <label style={labelStyle}>Email</label>
         <input {...register('email')} type="email" placeholder="you@example.com" style={fieldStyle} autoComplete="email"/>
@@ -94,7 +152,7 @@ function SignInForm({ onSuccess, onForgotPassword }: {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
           <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
-          <button type="button" onClick={onForgotPassword}
+          <button type="button" onClick={() => onForgotPassword(getValues('email') || '')}
             style={{ background: 'none', border: 'none', color: 'var(--brass)', fontSize: 10, cursor: 'pointer', minHeight: 'unset', fontFamily: 'DM Mono, monospace' }}>
             Forgot?
           </button>
@@ -106,11 +164,11 @@ function SignInForm({ onSuccess, onForgotPassword }: {
       {apiError && <div style={{ padding: '10px 12px', background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.3)', borderRadius: 6, fontSize: 12, color: '#f87171' }}>{apiError}</div>}
 
       <button type="submit" disabled={loading} style={{
-        background: 'var(--brass)', color: 'var(--ink)', border: 'none', padding: '13px',
+        background: role ? role.color : 'var(--brass)', color: 'var(--ink)', border: 'none', padding: '13px',
         borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.25em',
         textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
       }}>
-        {loading ? 'Signing in…' : 'Sign In →'}
+        {loading ? 'Signing in…' : `Sign In as ${role?.label ?? 'Member'} →`}
       </button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -387,7 +445,8 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
           {step === 'form' && tab === 'signin' && (
             <SignInForm
               onSuccess={onSuccess}
-              onForgotPassword={() => setStep('reset-sent')}
+              onForgotPassword={(email) => { setResetEmail(email); setStep('forgot-password'); }}
+              onVerified={onClose}
             />
           )}
           {step === 'form' && tab === 'signup' && (
@@ -400,36 +459,49 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
           {step === 'verify-email' && (
             <EmailVerification
               email={verifyEmail}
-              onVerified={() => setStep('form')}
+              onVerified={onClose}
               onBack={() => setStep('form')}
             />
           )}
 
-          {step === 'reset-sent' && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 14 }}>📧</div>
-              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Password reset sent</div>
-              <p style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 20, lineHeight: 1.6 }}>
-                Check your inbox for a reset link. It expires in 1 hour.
+          {step === 'forgot-password' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ fontSize: 12, color: 'var(--stone)', lineHeight: 1.6, margin: 0 }}>
+                Enter your email and we'll send you a reset link.
               </p>
-              <div style={{ marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Email Address</label>
                 <input
                   type="email"
                   placeholder="your@email.com"
                   value={resetEmail}
                   onChange={e => setResetEmail(e.target.value)}
-                  style={{ ...fieldStyle, marginBottom: 8 }}
+                  style={fieldStyle}
+                  autoFocus
                 />
                 {resetError && <p style={errStyle}>{resetError}</p>}
-                <button onClick={handleForgotPassword} disabled={resetLoading} style={{
-                  width: '100%', background: 'var(--ink3)', border: '1px solid var(--bord2)',
-                  color: 'var(--stone)', padding: '10px', borderRadius: 6,
-                  fontFamily: 'DM Mono, monospace', fontSize: 10, cursor: 'pointer',
-                }}>
-                  {resetLoading ? 'Sending…' : 'Send Reset Email'}
-                </button>
               </div>
-              <button onClick={() => setStep('form')} style={{ background: 'none', border: 'none', color: 'var(--stone)', fontSize: 11, cursor: 'pointer', minHeight: 'unset' }}>
+              <button onClick={handleForgotPassword} disabled={resetLoading} style={{
+                background: 'var(--brass)', color: 'var(--ink)', border: 'none', padding: '13px',
+                borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.25em',
+                textTransform: 'uppercase', cursor: resetLoading ? 'not-allowed' : 'pointer', opacity: resetLoading ? 0.6 : 1,
+              }}>
+                {resetLoading ? 'Sending…' : 'Send Reset Email →'}
+              </button>
+              <button onClick={() => { setStep('form'); setResetError(''); }} style={{ background: 'none', border: 'none', color: 'var(--stone)', fontSize: 11, cursor: 'pointer', minHeight: 'unset' }}>
+                ← Back to Sign In
+              </button>
+            </div>
+          )}
+
+          {step === 'reset-sent' && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>📧</div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Check your inbox</div>
+              <p style={{ fontSize: 12, color: 'var(--stone)', marginBottom: 20, lineHeight: 1.6 }}>
+                A reset link has been sent to <strong style={{ color: 'var(--parch)' }}>{resetEmail}</strong>. It expires in 1 hour.
+              </p>
+              <button onClick={() => { setStep('form'); setResetEmail(''); setResetError(''); }} style={{ background: 'none', border: 'none', color: 'var(--stone)', fontSize: 11, cursor: 'pointer', minHeight: 'unset' }}>
                 ← Back to Sign In
               </button>
             </div>

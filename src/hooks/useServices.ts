@@ -26,18 +26,18 @@ export function useServices(includeInactive = false) {
       if (err) throw err;
       if (data && data.length > 0) {
         setServices(data.map(r => ({
-          id: r.id,
-          name: r.name,
+          id: String(r.id ?? ''),
+          name: String(r.name ?? 'Unnamed Service'),
           description: r.description ?? '',
-          tag: r.tag,
-          price: r.price_swl / 100,
-          priceCents: r.price_swl,
-          duration: r.duration_minutes,
-          active: r.active,
+          tag: String(r.tag ?? ''),
+          price: typeof r.price_swl === 'number' ? r.price_swl / 100 : 0,
+          priceCents: typeof r.price_swl === 'number' ? r.price_swl : 0,
+          duration: typeof r.duration_minutes === 'number' ? r.duration_minutes : 0,
+          active: r.active ?? false,
         })));
       }
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e.message : String(e));
       // Keep FALLBACK data — service stays usable offline
     } finally {
       setLoading(false);

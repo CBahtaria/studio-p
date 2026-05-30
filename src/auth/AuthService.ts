@@ -175,15 +175,15 @@ class AuthService {
     return !!session;
   }
 
-  onAuthStateChange(cb: (profile: UserProfile | null) => void): () => void {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  onAuthStateChange(cb: (profile: UserProfile | null, event: string) => void): () => void {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         try {
           // Pass session.user directly — avoids calling getUser() while the
           // Supabase auth lock is held, which would deadlock the Promise.
           const profile = await this.fetchProfile(session.user.id, session.user);
           this.currentProfile = profile;
-          cb(profile);
+          cb(profile, event);
         } catch (err) {
           logger.error('AuthService', 'fetchProfile failed — using session fallback', { err });
           // Never lock out an authenticated user. Build a minimal profile
@@ -195,7 +195,7 @@ class AuthService {
             name: (u.user_metadata?.full_name as string) || (u.user_metadata?.name as string) || email.split('@')[0] || 'Member',
             email,
             avatar: (u.user_metadata?.avatar_url as string) ?? undefined,
-            role: this.resolveRole(email),
+            role: 'viewer',
             provider: (u.app_metadata?.provider as UserProfile['provider']) ?? 'email',
             memberTier: 'bronze',
             visitCount: 0,
@@ -205,19 +205,14 @@ class AuthService {
             emailVerified: !!u.email_confirmed_at,
           };
           this.currentProfile = fallback;
-          cb(fallback);
+          cb(fallback, event);
         }
       } else {
         this.currentProfile = null;
-        cb(null);
+        cb(null, event);
       }
     });
     return () => subscription.unsubscribe();
-  }
-
-  private resolveRole(email: string): UserProfile['role'] {
-    const ADMIN_EMAILS = ['charleskris9@gmail.com'];
-    return ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'viewer';
   }
 
   private async fetchProfile(userId: string, authUser?: SupabaseUser): Promise<UserProfile> {
@@ -230,7 +225,6 @@ class AuthService {
     if (!error && data) {
       try {
         const p = rowToProfile(data as ProfileRow);
-        if (this.resolveRole(p.email) === 'admin') p.role = 'admin';
         return p;
       } catch { /* fall through to rebuild */ }
     }
@@ -248,14 +242,13 @@ class AuthService {
     ).slice(0, 60) || 'Member';
 
     const email = user?.email ?? '';
-    const role  = this.resolveRole(email);
 
     const fallback: UserProfile = {
       id: userId,
       name,
       email,
       avatar: (meta.avatar_url as string) ?? undefined,
-      role,
+      role: 'viewer',
       provider: (user?.app_metadata?.provider as UserProfile['provider']) ?? 'email',
       memberTier: 'bronze',
       visitCount: 0,
@@ -272,7 +265,7 @@ class AuthService {
       email: fallback.email,
       avatar: fallback.avatar ?? null,
       provider: fallback.provider,
-      role,
+      role: 'viewer',
       member_tier: 'bronze',
     }, { onConflict: 'id', ignoreDuplicates: true });
 

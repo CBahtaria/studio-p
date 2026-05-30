@@ -5,28 +5,52 @@
 
 import { useState, useEffect } from 'react';
 import type { UserProfile, Agent, OrchestrationResult, HealthStatus } from '@/types';
-import { bookingService, DEMO_BOOKINGS } from '@/services/BookingService';
+import { bookingService } from '@/services/BookingService';
+import { supabase } from '@/lib/supabase';
 import { monitor } from '@/core/monitor';
 import { logger } from '@/core/logger';
 import { AgentPanel } from '@/components/AgentPanel';
+
+interface RealBooking {
+  id: string;
+  client_name: string;
+  service: string;
+  barber: string;
+  scheduled_at: string;
+  price_swl: number;
+  status: string;
+}
+
+interface RealUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  upload_count: number;
+  provider: string;
+}
+
+interface PendingMedia {
+  id: string;
+  url: string;
+  caption: string | null;
+  created_at: string;
+  uploader_id: string;
+}
 
 const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
 const HERO_IMG = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1400&q=70';
 
 const NAV = [
   { id: 'dashboard', icon: '⚡', label: 'Dashboard',  badge: null },
-  { id: 'bookings',  icon: '📅', label: 'Bookings',   badge: '8'  },
+  { id: 'bookings',  icon: '📅', label: 'Bookings',   badge: null },
   { id: 'users',     icon: '👥', label: 'Users',      badge: null },
+  { id: 'gallery',   icon: '🖼️', label: 'Gallery',    badge: null },
   { id: 'agents',    icon: '🤖', label: 'Agents',     badge: null },
   { id: 'system',    icon: '🔧', label: 'System',     badge: null },
   { id: 'rls',       icon: '🛡️', label: 'RLS',        badge: null },
 ];
 
-const DEMO_USERS = [
-  { id: 'admin-001',  name: 'Studio P Admin',  email: 'admin@studiop.sz',  role: 'admin',  uploadCount: 0  },
-  { id: 'editor-001', name: 'P. Dlamini',      email: 'editor@studiop.sz', role: 'editor', uploadCount: 12 },
-  { id: 'viewer-001', name: 'Sipho Dlamini',   email: 'sipho@example.com', role: 'viewer', uploadCount: 2  },
-];
 
 const SYSTEM_LOGS = [
   { t: '14:32:05', type: 'ok',   msg: 'BK-A3F12 confirmed — Lungelo M.' },
@@ -46,6 +70,7 @@ const SECTION_META: Record<string, { eyebrow: string; title: string; sub?: strin
   dashboard: { eyebrow: 'Command Centre',        title: 'Dashboard',         sub: 'Live operations overview for Studio P.' },
   bookings:  { eyebrow: 'Appointment Management', title: 'Bookings',          sub: 'Manage, confirm, and track every chair.' },
   users:     { eyebrow: 'Member Directory',       title: 'Members' },
+  gallery:   { eyebrow: 'Media Moderation',       title: 'Gallery',           sub: 'Approve or reject submitted photos and videos.' },
   agents:    { eyebrow: 'Parallel Processing',    title: 'Agent Engine',      sub: '4 validation agents run concurrently via Promise.all. A synthesiser agent reads all outputs and produces a final recommendation.' },
   system:    { eyebrow: 'System Status',          title: 'System' },
   rls:       { eyebrow: 'Row-Level Security',     title: 'RLS & Key Vault' },
@@ -71,11 +96,15 @@ interface AdminPortalProps {
 }
 
 export function AdminPortal({ user, onClose }: AdminPortalProps) {
-  const [section, setSection] = useState('dashboard');
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [agResult, setAgResult] = useState<OrchestrationResult | null>(null);
-  const [running, setRunning] = useState(false);
-  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [section, setSection]         = useState('dashboard');
+  const [agents, setAgents]           = useState<Agent[]>([]);
+  const [agResult, setAgResult]       = useState<OrchestrationResult | null>(null);
+  const [running, setRunning]         = useState(false);
+  const [health, setHealth]           = useState<HealthStatus | null>(null);
+  const [bookings, setBookings]       = useState<RealBooking[]>([]);
+  const [users, setUsers]             = useState<RealUser[]>([]);
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--admin-bg)');
@@ -85,7 +114,24 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
     document.documentElement.style.setProperty('--port-a2',   'var(--admin-a2)');
     document.documentElement.style.setProperty('--port-t',    'var(--admin-t)');
     document.documentElement.style.setProperty('--port-m',    'var(--admin-m)');
-    monitor.getHealth().then(setHealth);
+
+    monitor.getHealth().then(setHealth).catch(e => logger.warn('AdminPortal', 'health check failed', { error: String(e) }));
+
+    setDataLoading(true);
+    Promise.all([
+      supabase.from('bookings').select('id,client_name,service,barber,scheduled_at,price_swl,status').order('scheduled_at', { ascending: false }).limit(50),
+      supabase.from('profiles').select('id,name,email,role,upload_count,provider').order('created_at', { ascending: false }).limit(100),
+      supabase.from('gallery_items').select('id,url,caption,created_at,uploader_id').eq('approved', false).order('created_at', { ascending: false }).limit(50),
+    ]).then(([bRes, uRes, mRes]) => {
+      if (!bRes.error) setBookings((bRes.data ?? []) as RealBooking[]);
+      else logger.warn('AdminPortal', 'bookings fetch failed', { error: bRes.error.message });
+      if (!uRes.error) setUsers((uRes.data ?? []) as RealUser[]);
+      else logger.warn('AdminPortal', 'users fetch failed', { error: uRes.error.message });
+      if (!mRes.error) setPendingMedia((mRes.data ?? []) as PendingMedia[]);
+      else logger.warn('AdminPortal', 'media fetch failed', { error: mRes.error.message });
+      setDataLoading(false);
+    });
+
     return () => {
       ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
         .forEach(v => document.documentElement.style.removeProperty(v));
@@ -96,12 +142,17 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
     setRunning(true);
     setAgResult(null);
     logger.info('AdminPortal', 'Running demo agent orchestration');
-    const res = await bookingService.validate(
-      { service: 'Signature Fade', date: '2025-06-10', time: '14:30', email: user.email, clientId: user.id },
-      ({ agents }) => setAgents(agents ?? [])
-    );
-    setAgResult(res);
-    setRunning(false);
+    try {
+      const res = await bookingService.validate(
+        { service: 'Signature Fade', date: '2026-06-10', time: '14:30', email: user.email, clientId: user.id },
+        ({ agents }) => setAgents(agents ?? [])
+      );
+      setAgResult(res);
+    } catch (e) {
+      logger.error('AdminPortal', 'Demo validation error', { error: String(e) });
+    } finally {
+      setRunning(false);
+    }
   };
 
   const meta = SECTION_META[section] ?? { eyebrow: '', title: section };
@@ -177,24 +228,29 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
           {section === 'dashboard' && (
             <div style={{ animation: 'portIn .25s ease' }}>
               <div className="sg">
-                {[{ v: '8', l: "Today's Bookings", d: '↑ +2' }, { v: 'E2,640', l: 'Revenue', d: '↑ 18%' }, { v: '14', l: 'Queue Items', d: '3 pending' }, { v: '99.8%', l: 'Uptime', d: '✓ All green' }].map(s => (
+                {[
+                  { v: String(bookings.filter(b => { const d = new Date(b.scheduled_at); const now = new Date(); return d.toDateString() === now.toDateString(); }).length), l: "Today's Bookings", d: `${bookings.filter(b => b.status === 'pending').length} pending` },
+                  { v: `E${(bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + b.price_swl, 0) / 100).toFixed(0)}`, l: 'Total Revenue', d: `${bookings.length} bookings` },
+                  { v: String(pendingMedia.length), l: 'Media Queue', d: 'awaiting review' },
+                  { v: String(users.length), l: 'Members', d: `${users.filter(u => u.role === 'editor').length} editors` },
+                ].map(s => (
                   <div key={s.l} className="sc">
                     <div className="sc-v">{s.v}</div>
                     <div className="sc-l">{s.l}</div>
-                    <div className={`sc-d${s.d.startsWith('↑') ? ' up' : ''}`}>{s.d}</div>
+                    <div className="sc-d">{s.d}</div>
                   </div>
                 ))}
               </div>
               <div className="g2">
                 <div className="pc">
-                  <div className="pc-h"><span className="pc-t">Today's Bookings</span><button className="pb">View All</button></div>
+                  <div className="pc-h"><span className="pc-t">Recent Bookings</span><button className="pb" onClick={() => setSection('bookings')}>View All</button></div>
                   <div style={{ padding: '4px 18px' }}>
-                    {DEMO_BOOKINGS.slice(0, 4).map((b, i) => (
-                      <div key={i} className="bki">
-                        <div className="bkav">{b.clientName[0]}</div>
+                    {bookings.slice(0, 4).map(b => (
+                      <div key={b.id} className="bki">
+                        <div className="bkav">{b.client_name?.[0] ?? '?'}</div>
                         <div style={{ flex: 1 }}>
-                          <div className="bkn">{b.clientName}</div>
-                          <div className="bkm">{b.service} · {b.time}</div>
+                          <div className="bkn">{b.client_name}</div>
+                          <div className="bkm">{b.service} · {new Date(b.scheduled_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
                         </div>
                         <span className={`bkst ${b.status}`}>{b.status}</span>
                       </div>
@@ -233,22 +289,46 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
           {section === 'bookings' && (
             <div style={{ animation: 'portIn .25s ease' }}>
               <div className="pc">
-                <div className="pc-h"><span className="pc-t">All Appointments</span><div style={{ display: 'flex', gap: 7 }}><button className="pbg">Export</button><button className="pb">+ New</button></div></div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="pt">
-                    <thead><tr><th>Client</th><th>Service</th><th>Barber</th><th>Date</th><th>Price</th><th>Status</th></tr></thead>
-                    <tbody>{DEMO_BOOKINGS.map((b, i) => (
-                      <tr key={i}>
-                        <td style={{ color: 'var(--port-t)', fontWeight: 500 }}>{b.clientName}</td>
-                        <td>{b.service}</td>
-                        <td>{b.barber}</td>
-                        <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10 }}>{b.date} {b.time}</td>
-                        <td style={{ fontFamily: 'DM Mono, monospace', color: 'var(--port-a)' }}>{b.price}</td>
-                        <td><span className={`bkst ${b.status}`}>{b.status}</span></td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
+                <div className="pc-h"><span className="pc-t">All Appointments</span></div>
+                {dataLoading ? (
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--admin-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>Loading…</div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="pt">
+                      <thead><tr><th>Client</th><th>Service</th><th>Barber</th><th>Date</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+                      <tbody>{bookings.map(b => {
+                        const d = new Date(b.scheduled_at);
+                        const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+                        const timeStr = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        const setStatus = async (status: string) => {
+                          const { error } = await supabase.from('bookings').update({ status }).eq('id', b.id);
+                          if (!error) setBookings(bks => bks.map(x => x.id === b.id ? { ...x, status } : x));
+                          else logger.error('AdminPortal', 'booking update failed', { error: error.message });
+                        };
+                        return (
+                          <tr key={b.id}>
+                            <td style={{ color: 'var(--port-t)', fontWeight: 500 }}>{b.client_name}</td>
+                            <td>{b.service}</td>
+                            <td>{b.barber}</td>
+                            <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10 }}>{dateStr} {timeStr}</td>
+                            <td style={{ fontFamily: 'DM Mono, monospace', color: 'var(--port-a)' }}>E{(b.price_swl / 100).toFixed(0)}</td>
+                            <td><span className={`bkst ${b.status}`}>{b.status}</span></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                {b.status === 'pending' && (
+                                  <button className="pb" style={{ padding: '3px 7px', fontSize: 8, minHeight: 'unset' }} onClick={() => setStatus('confirmed')}>✓ Confirm</button>
+                                )}
+                                {b.status !== 'cancelled' && (
+                                  <button style={{ padding: '3px 7px', fontSize: 8, minHeight: 'unset', background: 'rgba(248,113,113,.15)', color: '#f87171', border: '1px solid rgba(248,113,113,.3)', borderRadius: 4, cursor: 'pointer' }} onClick={() => setStatus('cancelled')}>✗ Cancel</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -256,21 +336,92 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
           {section === 'users' && (
             <div style={{ animation: 'portIn .25s ease' }}>
               <div className="pc">
-                <div className="pc-h"><span className="pc-t">All Members</span><button className="pb">+ Invite</button></div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="pt">
-                    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Uploads</th><th>Provider</th></tr></thead>
-                    <tbody>{DEMO_USERS.map((u, i) => (
-                      <tr key={i}>
-                        <td style={{ color: 'var(--port-t)', fontWeight: 500 }}>{u.name}</td>
-                        <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10 }}>{u.email}</td>
-                        <td><span className={`rp ${u.role}`}>{u.role}</span></td>
-                        <td style={{ textAlign: 'center' }}>{u.uploadCount}</td>
-                        <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--port-m)' }}>demo</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+                <div className="pc-h"><span className="pc-t">All Members</span></div>
+                {dataLoading ? (
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--admin-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>Loading…</div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="pt">
+                      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Uploads</th><th>Provider</th><th>Actions</th></tr></thead>
+                      <tbody>{users.map(u => {
+                        const changeRole = async (role: string) => {
+                          if (u.id === user.id) return; // can't change own role
+                          const { error } = await supabase.from('profiles').update({ role }).eq('id', u.id);
+                          if (!error) setUsers(us => us.map(x => x.id === u.id ? { ...x, role } : x));
+                          else logger.error('AdminPortal', 'role update failed', { error: error.message });
+                        };
+                        return (
+                          <tr key={u.id}>
+                            <td style={{ color: 'var(--port-t)', fontWeight: 500 }}>{u.name}</td>
+                            <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10 }}>{u.email}</td>
+                            <td><span className={`rp ${u.role}`}>{u.role}</span></td>
+                            <td style={{ textAlign: 'center' }}>{u.upload_count ?? 0}</td>
+                            <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--port-m)' }}>{u.provider}</td>
+                            <td>
+                              {u.id !== user.id && (
+                                <select
+                                  value={u.role}
+                                  onChange={e => changeRole(e.target.value)}
+                                  style={{ background: 'var(--admin-s)', color: 'var(--admin-t)', border: '1px solid var(--admin-b)', borderRadius: 4, padding: '2px 6px', fontSize: 10, fontFamily: 'DM Mono, monospace', cursor: 'pointer' }}
+                                >
+                                  <option value="viewer">viewer</option>
+                                  <option value="editor">editor</option>
+                                  <option value="admin">admin</option>
+                                </select>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {section === 'gallery' && (
+            <div style={{ animation: 'portIn .25s ease' }}>
+              <div className="pc">
+                <div className="pc-h">
+                  <span className="pc-t">Pending Media — {pendingMedia.length} item{pendingMedia.length !== 1 ? 's' : ''}</span>
                 </div>
+                {dataLoading ? (
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--admin-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>Loading…</div>
+                ) : pendingMedia.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--admin-m)', fontSize: 13 }}>No items pending review.</div>
+                ) : (
+                  <div className="gport" style={{ padding: 18 }}>
+                    {pendingMedia.map(item => (
+                      <div key={item.id} className="gpimg">
+                        {item.url.includes('/studio-media/') ? (
+                          <video src={item.url} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <img src={item.url} alt={item.caption ?? 'pending'} loading="lazy" />
+                        )}
+                        <div className="gpov">
+                          {item.caption && (
+                            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.85)', marginBottom: 4, fontFamily: 'DM Mono, monospace', padding: '0 4px' }}>
+                              {item.caption}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }} onClick={async () => {
+                              const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
+                              if (!error) setPendingMedia(q => q.filter(x => x.id !== item.id));
+                              else logger.error('AdminPortal', 'gallery approve failed', { error: error.message });
+                            }}>✓ Approve</button>
+                            <button style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset', background: 'rgba(248,113,113,.3)', color: '#f87171', border: '1px solid rgba(248,113,113,.4)', borderRadius: 4, cursor: 'pointer' }} onClick={async () => {
+                              const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
+                              if (!error) setPendingMedia(q => q.filter(x => x.id !== item.id));
+                              else logger.error('AdminPortal', 'gallery reject failed', { error: error.message });
+                            }}>✗ Reject</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
