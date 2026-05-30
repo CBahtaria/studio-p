@@ -3,12 +3,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 Deno.serve(async (req: Request) => {
   const headers = { 'Content-Type': 'application/json' };
 
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const cronSecret = Deno.env.get('CRON_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const token = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
-  if (!token || token !== serviceKey) {
+  if (!token || token !== cronSecret) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
   }
 
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
 
   let totalDeleted = 0;
