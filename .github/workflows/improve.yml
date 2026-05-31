@@ -1,0 +1,170 @@
+name: Nightly AI Self-Improvement
+
+# Blue-green loop: Claude reviews src/ nightly, fixes issues, opens a PR to staging.
+# Human reviews and merges — nothing auto-deploys to production.
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 2 AM UTC every night
+  workflow_dispatch:        # manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write           # push the improve/* branch
+  pull-requests: write      # open the PR
+
+jobs:
+  improve:
+    name: AI Code Improvement
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout staging ─────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      # ── 2. Git identity for the bot commit ──────────────────────────────────
+      - name: Configure git
+        run: |
+          git config user.name  "studio-p-bot"
+          git config user.email "bot@studiop.sz"
+
+      # ── 3. Node 24 ──────────────────────────────────────────────────────────
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # ── 4. Install deps (includes @anthropic-ai/sdk from package.json) ──────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 5. Baseline tsc — output injected into the agent as context ─────────
+      - name: Baseline type-check
+        id: typecheck
+        run: |
+          set +e
+          TSC_OUT=$(node_modules/.bin/tsc --noEmit 2>&1)
+          set -e
+          {
+            echo "TSC_OUTPUT<<EOF_TSC"
+            printf '%s' "$TSC_OUT"
+            echo ""
+            echo "EOF_TSC"
+          } >> "$GITHUB_OUTPUT"
+          echo "$TSC_OUT" || true
+
+      # ── 6. Run the agent ─────────────────────────────────────────────────────
+      - name: Run self-improvement agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TSC_BASELINE:      ${{ steps.typecheck.outputs.TSC_OUTPUT }}
+        run: node scripts/self-improve.mjs
+        timeout-minutes: 15
+
+      # ── 7. Did the agent change any src/ files? ──────────────────────────────
+      - name: Check for changes
+        id: diff
+        run: |
+          CHANGED=$(git diff --name-only HEAD -- src/ | tr '\n' ',')
+          echo "CHANGED_FILES=$CHANGED" >> "$GITHUB_OUTPUT"
+          if [ -n "$CHANGED" ]; then
+            echo "HAS_CHANGES=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "HAS_CHANGES=false" >> "$GITHUB_OUTPUT"
+            echo "No src/ files changed — skipping PR."
+          fi
+
+      # ── 8. Verify agent didn't introduce type errors (hard gate) ─────────────
+      - name: Post-agent type-check
+        if: steps.diff.outputs.HAS_CHANGES == 'true'
+        run: |
+          set +e
+          node_modules/.bin/tsc --noEmit 2>&1
+          EXIT=$?
+          set -e
+          if [ $EXIT -eq 0 ]; then
+            echo "TYPECHECK_PASSED=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Post-agent tsc failed — PR creation skipped"
+            echo "TYPECHECK_PASSED=false" >> "$GITHUB_ENV"
+          fi
+
+      # ── 9. Create improve/* branch and commit ───────────────────────────────
+      - name: Commit and push
+        if: >
+          steps.diff.outputs.HAS_CHANGES == 'true' &&
+          env.TYPECHECK_PASSED == 'true'
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          BRANCH="improve/${DATE}"
+          git checkout -b "$BRANCH"
+          git add src/
+          git commit -m "chore: nightly self-improvement ${DATE}"
+          git push origin "$BRANCH"
+          echo "IMPROVE_BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          echo "IMPROVE_DATE=$DATE"     >> "$GITHUB_ENV"
+
+      # ── 10. Open PR to staging ──────────────────────────────────────────────
+      - name: Open PR to staging
+        if: >
+          steps.diff.outputs.HAS_CHANGES == 'true' &&
+          env.TYPECHECK_PASSED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY=$(cat /tmp/improve-summary.json 2>/dev/null || echo '{"changes":[]}')
+          FIX_LIST=$(node -e "
+            const s = JSON.parse(process.env.SUMMARY || '{\"changes\":[]}');
+            const lines = (s.changes || [])
+              .map(c => '- \`' + c.file + '\`: ' + c.reason)
+              .join('\n');
+            process.stdout.write(lines || '- (no structured summary available)');
+          " SUMMARY="$SUMMARY")
+
+          gh pr create \
+            --base staging \
+            --head "$IMPROVE_BRANCH" \
+            --title "chore: nightly self-improvement $IMPROVE_DATE" \
+            --body "## Nightly AI Self-Improvement — $IMPROVE_DATE
+
+This PR was opened automatically by the nightly improvement workflow.
+Claude (claude-sonnet-4-6) reviewed all TypeScript source files and applied fixes.
+
+**Do not merge without reviewing each changed file.**
+
+---
+
+## Fixes Applied
+
+$FIX_LIST
+
+---
+
+## Files Modified
+
+\`${{ steps.diff.outputs.CHANGED_FILES }}\`
+
+---
+
+## How to Review
+
+1. Check each diff in the **Files changed** tab.
+2. Optionally run locally: \`git checkout $IMPROVE_BRANCH && npm run dev\`
+3. \`npm run type-check\` already passed in CI before this PR was created.
+4. Merge into \`staging\` → Vercel green preview builds automatically.
+5. When satisfied: \`./scripts/blue-green.sh promote\` to go live on production.
+
+---
+
+## Safety Guarantees
+
+- Agent only modified files inside \`src/\`
+- Max 8 files and 40 tool calls per session
+- \`package.json\`, \`.env\`, \`supabase/\`, \`vercel.json\`, \`api/\` were never touched
+- This PR targets \`staging\` — never \`main\`
+- Post-agent \`tsc --noEmit\` passed before this PR was created
+
+🤖 Generated by [studio-p-bot](/.github/workflows/improve.yml)"
