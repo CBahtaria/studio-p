@@ -45,7 +45,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-interface ClientPhoto { url: string; caption: string | null; created_at: string; }
+interface ClientPhoto { id: string; url: string; caption: string | null; created_at: string; }
 interface VideoItem   { url: string; }
 
 interface LandingPageProps {
@@ -74,7 +74,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
   useEffect(() => {
     supabase
       .from('gallery_items')
-      .select('url, caption, created_at')
+      .select('id, url, caption, created_at')
       .eq('approved', true)
       .eq('media_type', 'image')
       .order('created_at', { ascending: false })
@@ -83,6 +83,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         if (error) { logger.warn('LandingPage', 'gallery images fetch failed', { error: error.message }); return; }
         if (data && data.length > 0) {
           const photos: ClientPhoto[] = data.map(d => ({
+            id: d.id as string,
             url: d.url as string,
             caption: d.caption as string | null,
             created_at: d.created_at as string,
@@ -90,7 +91,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           setBgPhotos(shuffle(photos.map(p => p.url)));
           setClientPhotos(photos);
         }
-      });
+      })
+      .catch(e => logger.warn('LandingPage', 'gallery images error', { error: String(e) }));
 
     supabase
       .from('gallery_items')
@@ -104,7 +106,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         if (data && data.length > 0) {
           setBgVideos(data.map(d => ({ url: d.url as string })));
         }
-      });
+      })
+      .catch(e => logger.warn('LandingPage', 'gallery videos error', { error: String(e) }));
   }, []);
 
   // Rotate hero background (12 s for videos, 6 s for photos)
@@ -254,7 +257,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
             {clientPhotos.slice(0, 8).map((photo) => (
-              <div key={photo.url} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
+              <div key={photo.id} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
                 <img
                   src={photo.url}
                   alt={photo.caption ?? 'Studio P client photo'}
