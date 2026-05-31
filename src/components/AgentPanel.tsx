@@ -29,7 +29,12 @@ export function AgentPanel({ agents, result, running }: AgentPanelProps) {
   if (agents.length === 0) {
     return (
       <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--port-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
-        No agents running. Trigger a booking to start.
+        {running ? (
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--port-a)', animation: 'pulse 1.2s ease infinite' }}/>
+            VALIDATING…
+          </span>
+        ) : 'No agents running. Trigger a booking to start.'}
       </div>
     );
   }

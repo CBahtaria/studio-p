@@ -130,7 +130,7 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
       if (!mRes.error) setPendingMedia((mRes.data ?? []) as PendingMedia[]);
       else logger.warn('AdminPortal', 'media fetch failed', { error: mRes.error.message });
       setDataLoading(false);
-    });
+    }).catch(e => { logger.warn('AdminPortal', 'data fetch error', { error: String(e) }); setDataLoading(false); });
 
     return () => {
       ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
