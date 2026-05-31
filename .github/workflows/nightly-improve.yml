@@ -52,7 +52,7 @@ jobs:
 
       - name: Run self-improvement agent
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TSC_BASELINE: ${{ steps.typecheck.outputs.TSC_OUTPUT }}
         run: node scripts/self-improve.mjs
         timeout-minutes: 15
