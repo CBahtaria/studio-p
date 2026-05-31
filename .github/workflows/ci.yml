@@ -1,13 +1,18 @@
-name: CI
+name: CI / Blue-Green Deploy
+
+# Blue  = main    → production (studiop.sz)
+# Green = staging → Vercel preview URL (tested before promoting)
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
-  build:
+  # ── 1. Validate ─────────────────────────────────────────────────────────
+  validate:
+    name: Type-check & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +35,84 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          VITE_APP_ENV: production
+          VITE_APP_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
           VITE_ENABLE_DEMO_MODE: 'false'
           VITE_ENABLE_DEV_LOG: 'false'
+
+  # ── 2. Deploy green (staging branch only) ───────────────────────────────
+  deploy-green:
+    name: Deploy Green (Preview)
+    needs: validate
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Vercel (preview / green)
+        run: |
+          npx vercel pull --yes \
+            --environment=preview \
+            --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel build \
+            --token=${{ secrets.VERCEL_TOKEN }}
+          url=$(npx vercel deploy --prebuilt \
+            --token=${{ secrets.VERCEL_TOKEN }})
+          echo "GREEN_URL=$url" >> "$GITHUB_ENV"
+          echo "✓ Green deployed: $url"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Post preview URL to summary
+        run: |
+          echo "### Green Environment Ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Preview URL:** $GREEN_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "To promote to production:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "./scripts/blue-green.sh promote" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 3. Deploy blue (main branch only) ───────────────────────────────────
+  deploy-blue:
+    name: Deploy Blue (Production)
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Vercel (production / blue)
+        run: |
+          npx vercel pull --yes \
+            --environment=production \
+            --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --prod \
+            --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel deploy --prebuilt --prod \
+            --token=${{ secrets.VERCEL_TOKEN }}
+          echo "✓ Blue (production) deployment complete."
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

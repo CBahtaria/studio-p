@@ -54,6 +54,7 @@ host = "smtp.gmail.com"
 port = 587
 user = "charleskris9@gmail.com"
 pass = "env(GMAIL_APP_PASSWORD)"
+admin_email = "charleskris9@gmail.com"
 sender_name = "Studio P"
 
 [auth.sms]
