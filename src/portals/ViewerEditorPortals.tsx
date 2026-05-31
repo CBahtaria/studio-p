@@ -80,7 +80,8 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
         if (error) logger.warn('ViewerPortal', 'history fetch failed', { error: error.message });
         else setHistory((data ?? []) as BookingRecord[]);
         setHistLoading(false);
-      });
+      })
+      .catch(e => { logger.warn('ViewerPortal', 'history fetch error', { error: String(e) }); setHistLoading(false); });
 
     return () => ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
       .forEach(v => document.documentElement.style.removeProperty(v));
@@ -361,7 +362,8 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
         if (error) logger.warn('EditorPortal', 'media queue fetch failed', { error: error.message });
         else setMediaQueue((data ?? []) as GalleryItem[]);
         setMediaLoading(false);
-      });
+      })
+      .catch(e => { logger.warn('EditorPortal', 'media queue error', { error: String(e) }); setMediaLoading(false); });
 
     return () => ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
       .forEach(v => document.documentElement.style.removeProperty(v));

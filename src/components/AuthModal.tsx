@@ -340,12 +340,16 @@ function SignUpForm({ onSuccess, role }: { onSuccess: (profile: UserProfile, nee
 // ── Demo Form ───────────────────────────────────
 function DemoForm({ onSuccess }: { onSuccess: (profile: UserProfile) => void }) {
   const [loading, setLoading] = useState('');
+  const [demoError, setDemoError] = useState('');
 
   const pick = async (role: 'admin' | 'editor' | 'viewer') => {
     setLoading(role);
+    setDemoError('');
     try {
       const profile = await authService.signInDemo(role);
       onSuccess(profile);
+    } catch (e) {
+      setDemoError(e instanceof Error ? e.message : 'Demo sign-in failed');
     } finally {
       setLoading('');
     }
@@ -356,6 +360,7 @@ function DemoForm({ onSuccess }: { onSuccess: (profile: UserProfile) => void }) 
       <p style={{ fontSize: 11, color: 'var(--stone)', lineHeight: 1.6, marginBottom: 4 }}>
         Development mode — explore all portals without a real account.
       </p>
+      {demoError && <div style={{ padding: '8px 12px', background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.3)', borderRadius: 6, fontSize: 11, color: '#f87171', marginBottom: 4 }}>{demoError}</div>}
       {([
         ['admin',  '⚡ Admin Portal',  'Full system access', 'var(--admin-a)'],
         ['editor', '🎨 Editor Studio', 'Content management', 'var(--edit-a)'],
