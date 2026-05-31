@@ -256,9 +256,17 @@ async function main() {
   const chat = model.startChat({ history: [] });
   let response = await chat.sendMessage(initialPrompt);
 
+  // Debug: log raw response structure on first turn
+  console.log(`[debug] candidates=${response.candidates?.length ?? 'undefined'} promptFeedback=${JSON.stringify(response.promptFeedback ?? null)}`);
+  if (response.candidates?.[0]) {
+    const c0 = response.candidates[0];
+    console.log(`[debug] candidate[0] finishReason=${c0.finishReason} parts=${c0.content?.parts?.length ?? 0}`);
+    console.log(`[debug] parts=${JSON.stringify(c0.content?.parts?.map(p => Object.keys(p)))}`);
+  }
+
   while (toolCallCount < MAX_TOOL_CALLS && !sessionDone) {
     const candidate = response.candidates?.[0];
-    if (!candidate) break;
+    if (!candidate) { console.log('[debug] no candidate — breaking'); break; }
 
     const parts = candidate.content?.parts ?? [];
     const fnCalls = parts.filter(p => p.functionCall);
