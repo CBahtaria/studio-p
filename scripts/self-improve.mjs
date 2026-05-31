@@ -238,7 +238,7 @@ async function main() {
     model: 'gemini-2.5-flash',
     systemInstruction: SYSTEM_PROMPT,
     tools: [TOOL_DECLARATIONS],
-    toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
+    toolConfig: { functionCallingConfig: { mode: 'ANY' } },
   });
 
   const tscBaseline = process.env.TSC_BASELINE ?? '';
@@ -248,10 +248,7 @@ async function main() {
     tscBaseline || '(no errors at baseline)',
     '```',
     '',
-    '## Source files',
-    listFiles(),
-    '',
-    'Please review the source files and apply improvements. Start with files that have tsc errors, then move to larger service and component files.',
+    'Please start by calling list_files() to see the source files, then run_typecheck() for baseline errors, then review and fix issues.',
   ].join('\n');
 
   console.log(`Self-improvement agent starting (Gemini). Budget: ${MAX_TOOL_CALLS} tool calls, ${MAX_FILES_MODIFIED} files.`);
