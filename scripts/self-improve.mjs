@@ -254,8 +254,24 @@ async function main() {
   console.log(`Self-improvement agent starting (Gemini). Budget: ${MAX_TOOL_CALLS} tool calls, ${MAX_FILES_MODIFIED} files.`);
 
   const chat = model.startChat({ history: [] });
+
+  // Retry wrapper for 429 rate-limit errors
+  async function sendWithRetry(msg, maxRetries = 4) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return (await chat.sendMessage(msg)).response;
+      } catch (err) {
+        const is429 = err?.status === 429 || String(err?.message).includes('429');
+        if (!is429 || attempt === maxRetries) throw err;
+        const wait = (2 ** attempt) * 15_000; // 15s, 30s, 60s, 120s
+        console.log(`  [rate-limit] 429 received — retrying in ${wait / 1000}s (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, wait));
+      }
+    }
+  }
+
   // SDK returns { response: EnhancedGenerateContentResponse } — unwrap immediately
-  let response = (await chat.sendMessage(initialPrompt)).response;
+  let response = await sendWithRetry(initialPrompt);
 
   while (toolCallCount < MAX_TOOL_CALLS && !sessionDone) {
     const candidate = response.candidates?.[0];
@@ -287,7 +303,7 @@ async function main() {
     }
 
     if (sessionDone) break;
-    response = (await chat.sendMessage(fnResponses)).response;
+    response = await sendWithRetry(fnResponses);
   }
 
   if (toolCallCount >= MAX_TOOL_CALLS && !sessionDone) {
