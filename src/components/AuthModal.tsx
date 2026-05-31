@@ -346,6 +346,9 @@ function DemoForm({ onSuccess }: { onSuccess: (profile: UserProfile) => void }) 
     try {
       const profile = await authService.signInDemo(role);
       onSuccess(profile);
+    } catch (e) {
+      console.error("Demo sign-in failed:", e);
+      // No visible error feedback needed for demo, just log it.
     } finally {
       setLoading('');
     }

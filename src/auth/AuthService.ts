@@ -85,7 +85,7 @@ class AuthService {
       return {
         profile: {
           id: data.user.id,
-          name: (data.user.user_metadata.name as string) ?? email.split('@')[0],
+          name: ((data.user.user_metadata?.name as string) || email.split('@')[0]),
           email,
           role: 'viewer',
           provider: 'email',
