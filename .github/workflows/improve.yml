@@ -1,4 +1,5 @@
 name: Nightly AI Self-Improvement
+# dispatch-enabled: true
 
 # Blue-green loop: Claude reviews src/ nightly, fixes issues, opens a PR to staging.
 # Human reviews and merges — nothing auto-deploys to production.
