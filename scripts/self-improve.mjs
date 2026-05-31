@@ -257,11 +257,17 @@ async function main() {
   let response = await chat.sendMessage(initialPrompt);
 
   // Debug: log raw response structure on first turn
-  console.log(`[debug] candidates=${response.candidates?.length ?? 'undefined'} promptFeedback=${JSON.stringify(response.promptFeedback ?? null)}`);
-  if (response.candidates?.[0]) {
-    const c0 = response.candidates[0];
-    console.log(`[debug] candidate[0] finishReason=${c0.finishReason} parts=${c0.content?.parts?.length ?? 0}`);
-    console.log(`[debug] parts=${JSON.stringify(c0.content?.parts?.map(p => Object.keys(p)))}`);
+  console.log(`[debug] response keys=${JSON.stringify(Object.keys(response))}`);
+  console.log(`[debug] candidates=${response.candidates?.length ?? 'undefined'}`);
+  // Check if SDK wraps inside .response
+  if (response.response) {
+    console.log(`[debug] response.response keys=${JSON.stringify(Object.keys(response.response))}`);
+    console.log(`[debug] response.response.candidates=${JSON.stringify(response.response.candidates?.length ?? 'undefined')}`);
+  }
+  const _c0 = response.candidates?.[0] ?? response.response?.candidates?.[0];
+  if (_c0) {
+    console.log(`[debug] candidate[0] finishReason=${_c0.finishReason} parts=${_c0.content?.parts?.length ?? 0}`);
+    console.log(`[debug] parts=${JSON.stringify(_c0.content?.parts?.map(p => Object.keys(p)))}`);
   }
 
   while (toolCallCount < MAX_TOOL_CALLS && !sessionDone) {
