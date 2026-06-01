@@ -80,11 +80,24 @@ export class BookingService {
         complete: !!(data.service && data.date && data.time),
         missingFields: [!data.service ? 'service' : null, !data.date ? 'date' : null, !data.time ? 'time' : null].filter(Boolean),
       })),
-      runAgent('security', 'Security Auditor', '🔒', 310, () => ({
-        passed: true,
-        riskLevel: 'low',
-        checks: ['xss', 'injection', 'format'],
-      })),
+      runAgent('security', 'Security Auditor', '🔒', 310, () => {
+        const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
+        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const fields = [data.service, data.date, data.time, data.email];
+        const xssClean   = !fields.some(v => XSS.test(v ?? ''));
+        const sqlClean   = !fields.some(v => SQLI.test(v ?? ''));
+        const emailValid = EMAIL.test(data.email ?? '');
+        const lenOk      = fields.every(v => (v?.length ?? 0) <= 500);
+        const dateOk     = /^\d{4}-\d{2}-\d{2}$/.test(data.date ?? '');
+        const timeOk     = /^\d{2}:\d{2}$/.test(data.time ?? '');
+        const passed = xssClean && sqlClean && emailValid && lenOk && dateOk && timeOk;
+        return {
+          passed,
+          riskLevel: !xssClean || !sqlClean ? 'high' : 'low',
+          checks: { xss: xssClean, sqlInjection: sqlClean, emailFormat: emailValid, fieldLengths: lenOk, dateFormat: dateOk, timeFormat: timeOk },
+        };
+      }),
       runAgent('database', 'DB Formatter', '🗃️', 0, async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Not authenticated');
@@ -106,11 +119,19 @@ export class BookingService {
         if (!resp.ok || !json.approved) throw new Error(json.reason ?? 'Booking rejected');
         return { table: 'bookings', record: { id: json.bookingId }, scheduledAt: json.scheduledAt };
       }),
-      runAgent('rls', 'RLS Validator', '🛡️', 290, () => ({
-        allPassed: true,
-        serviceKeyExposed: false,
-        policiesChecked: ['anon_read', 'auth_insert'],
-      })),
+      runAgent('rls', 'RLS Validator', '🛡️', 290, async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const authenticated = !!session?.user;
+        const uidMatch      = session?.user?.id === data.clientId;
+        const allPassed     = authenticated && uidMatch;
+        return {
+          allPassed,
+          authenticated,
+          uidMatch,
+          serviceKeyExposed: false,
+          policiesChecked: ['auth_insert', 'client_id_rls', 'anon_read'],
+        };
+      }),
     ]);
 
     const round1 = [stR, scR, dbR, rlR];

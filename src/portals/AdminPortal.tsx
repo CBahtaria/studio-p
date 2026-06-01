@@ -109,10 +109,12 @@ function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: string; 
 interface AdminPortalProps {
   user: UserProfile;
   onClose: () => void;
+  onSignOut: () => void;
 }
 
-export function AdminPortal({ user, onClose }: AdminPortalProps) {
+export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
   const [section, setSection]         = useState('dashboard');
+  const [navOpen, setNavOpen]         = useState(false);
   const [agents, setAgents]           = useState<Agent[]>([]);
   const [agResult, setAgResult]       = useState<OrchestrationResult | null>(null);
   const [running, setRunning]         = useState(false);
@@ -176,22 +178,25 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
     };
   }, []);
 
-  const runDemo = async () => {
+  const runAgentTest = async () => {
     setRunning(true);
     setAgResult(null);
-    logger.info('AdminPortal', 'Running demo agent orchestration');
+    logger.info('AdminPortal', 'Running live agent validation test');
     try {
+      const futureDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
       const res = await bookingService.validate(
-        { service: 'Signature Fade', date: '2026-06-10', time: '14:30', email: user.email, clientId: user.id },
+        { service: 'Signature Fade', date: futureDate, time: '14:30', email: user.email, clientId: user.id },
         ({ agents }) => setAgents(agents ?? [])
       );
       setAgResult(res);
     } catch (e) {
-      logger.error('AdminPortal', 'Demo validation error', { error: String(e) });
+      logger.error('AdminPortal', 'Agent test error', { error: String(e) });
     } finally {
       setRunning(false);
     }
   };
+
+  const pendingBookings = bookings.filter(b => b.status === 'pending');
 
   const generateReport = async (dateStr?: string) => {
     setReportLoading(true);
@@ -230,71 +235,106 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
 
   const meta = SECTION_META[section] ?? { eyebrow: '', title: section };
 
-  return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 80px)', animation: 'portIn .32s cubic-bezier(.16,1,.3,1)' }}>
+  const navBadges: Record<string, number> = {
+    bookings: pendingBookings.length,
+    gallery:  pendingMedia.length,
+  };
 
-      {/* Sidebar */}
-      <div style={{
-        width: 200, flexShrink: 0,
-        background: 'var(--admin-s)',
-        borderRight: '1px solid var(--admin-b)',
-        display: 'flex', flexDirection: 'column',
-      }}>
-        {/* Brand */}
-        <div style={{ padding: '22px 20px 16px', borderBottom: '1px solid var(--admin-b)' }}>
-          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 26, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>P</div>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.28em', color: 'var(--admin-m)', marginTop: 3, textTransform: 'uppercase' }}>Studio P</div>
-        </div>
+  const Sidebar = () => (
+    <div style={{
+      width: 200, flexShrink: 0,
+      background: 'var(--admin-s)',
+      borderRight: '1px solid var(--admin-b)',
+      display: 'flex', flexDirection: 'column',
+      position: 'sticky', top: 0, height: 'calc(100vh - 80px)',
+    }}>
+      <div style={{ padding: '22px 20px 16px', borderBottom: '1px solid var(--admin-b)' }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 26, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>P</div>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.28em', color: 'var(--admin-m)', marginTop: 3, textTransform: 'uppercase' }}>Admin</div>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
+      </div>
 
-        <button onClick={onClose} style={{
-          background: 'none', border: 'none', color: 'var(--stone)',
-          textAlign: 'left', padding: '10px 20px', fontSize: 11,
-          fontFamily: 'DM Mono, monospace', letterSpacing: '.08em',
-          minHeight: 'unset', marginTop: 6,
-          cursor: 'pointer',
-        }}>← Public Site</button>
+      <button onClick={() => { onClose(); setNavOpen(false); }} style={{
+        background: 'none', border: 'none', color: 'var(--stone)',
+        textAlign: 'left', padding: '10px 20px', fontSize: 11,
+        fontFamily: 'DM Mono, monospace', letterSpacing: '.08em',
+        minHeight: 'unset', marginTop: 6, cursor: 'pointer',
+      }}>← Public Site</button>
 
-        <div style={{ flex: 1, padding: '4px 0' }}>
-          {NAV.map(n => (
-            <button key={n.id} onClick={() => setSection(n.id)} style={{
+      <div style={{ flex: 1, padding: '4px 0', overflowY: 'auto' }}>
+        {NAV.map(n => {
+          const badge = navBadges[n.id] ?? 0;
+          return (
+            <button key={n.id} onClick={() => { setSection(n.id); setNavOpen(false); }} style={{
               background: section === n.id ? 'rgba(255,179,71,.07)' : 'none',
               border: 'none',
               borderLeft: section === n.id ? '2px solid var(--admin-a)' : '2px solid transparent',
               color: section === n.id ? 'var(--admin-a)' : 'var(--admin-m)',
-              textAlign: 'left',
-              padding: '10px 20px', fontSize: 13,
+              textAlign: 'left', padding: '10px 20px', fontSize: 13,
               display: 'flex', alignItems: 'center', gap: 10,
               cursor: 'pointer', minHeight: 'unset', width: '100%',
               transition: 'color .15s, background .15s',
             }}>
               <span>{n.icon}</span>
               <span>{n.label}</span>
-              {n.badge && (
-                <span style={{ marginLeft: 'auto', background: 'var(--admin-a)', color: 'var(--admin-bg)', fontSize: 8, padding: '1px 6px', borderRadius: 10 }}>
-                  {n.badge}
+              {badge > 0 && (
+                <span style={{ marginLeft: 'auto', background: 'var(--admin-a)', color: 'var(--admin-bg)', fontSize: 8, padding: '1px 6px', borderRadius: 10, fontFamily: 'DM Mono, monospace' }}>
+                  {badge}
                 </span>
               )}
             </button>
-          ))}
-        </div>
-
-        {/* Health */}
-        {health && (
-          <div style={{ padding: '16px 20px', borderTop: '1px solid var(--admin-b)' }}>
-            {[['API', health.api], ['DB', health.db], ['CDN', health.cdn]].map(([l, s]) => (
-              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontFamily: 'DM Mono, monospace', fontSize: 9 }}>
-                <span style={{ color: 'var(--admin-m)' }}>{l}</span>
-                <span style={{ color: s === 'up' ? '#52E89A' : '#f87171' }}>● {String(s).toUpperCase()}</span>
-              </div>
-            ))}
-            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--admin-m)', marginTop: 4 }}>{health.responseMs}ms</div>
-          </div>
-        )}
+          );
+        })}
       </div>
 
+      {health && (
+        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--admin-b)' }}>
+          {[['API', health.api], ['DB', health.db]].map(([l, s]) => (
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: 'DM Mono, monospace', fontSize: 9 }}>
+              <span style={{ color: 'var(--admin-m)' }}>{l}</span>
+              <span style={{ color: s === 'up' ? '#52E89A' : '#f87171' }}>● {String(s).toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ padding: '12px 20px', borderTop: '1px solid var(--admin-b)' }}>
+        <button onClick={onSignOut} style={{
+          width: '100%', background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.25)',
+          color: '#f87171', borderRadius: 6, padding: '8px 12px', fontSize: 10,
+          fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer', minHeight: 'unset',
+        }}>Sign Out</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', minHeight: 'calc(100vh - 80px)', animation: 'portIn .32s cubic-bezier(.16,1,.3,1)', position: 'relative' }}>
+
+      {/* Desktop sidebar */}
+      <div className="admin-sidebar-desktop">
+        <Sidebar />
+      </div>
+
+      {/* Mobile overlay */}
+      {navOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }} onClick={() => setNavOpen(false)}>
+          <div style={{ width: 220, background: 'var(--admin-s)', borderRight: '1px solid var(--admin-b)', zIndex: 201, display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <Sidebar />
+          </div>
+          <div style={{ flex: 1, background: 'rgba(0,0,0,.5)' }} />
+        </div>
+      )}
+
       {/* Main */}
-      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--admin-bg)', color: 'var(--admin-t)' }}>
-        <div style={{ padding: '0 28px 60px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--admin-bg)', color: 'var(--admin-t)', minWidth: 0 }}>
+        {/* Mobile top bar */}
+        <div className="admin-mobile-bar">
+          <button onClick={() => setNavOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--admin-m)', fontSize: 18, cursor: 'pointer', minHeight: 'unset', padding: '12px 16px' }}>☰</button>
+          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 700, color: 'var(--brass)' }}>P</div>
+          <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 10, fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer', minHeight: 'unset', padding: '12px 16px' }}>OUT</button>
+        </div>
+        <div style={{ padding: '0 20px 60px' }}>
 
           <SectionHead eyebrow={meta.eyebrow} title={meta.title} sub={section === 'agents' ? meta.sub : undefined} />
 
@@ -638,8 +678,8 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
               <div className="pc">
                 <div className="pc-h">
                   <span className="pc-t">Live Agent Run</span>
-                  <button className="pb" onClick={runDemo} disabled={running}>
-                    {running ? 'Running…' : 'Run Demo Booking'}
+                  <button className="pb" onClick={runAgentTest} disabled={running}>
+                    {running ? 'Running…' : 'Test Live Booking'}
                   </button>
                 </div>
                 <div className="pc-b">

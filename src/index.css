@@ -146,3 +146,19 @@ input,textarea,select{font-family:inherit}
 .pc:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.28)}
 /* ── Reduced-motion override ────────────────────── */
 @media(prefers-reduced-motion:reduce){[data-reveal],.stagger>*,.portal-enter{animation:none !important;transition:none !important;transform:none !important;opacity:1 !important}}
+/* ── Admin portal responsive sidebar ───────────── */
+.admin-sidebar-desktop{display:flex}
+.admin-mobile-bar{display:none;align-items:center;justify-content:space-between;background:var(--admin-s);border-bottom:1px solid var(--admin-b);position:sticky;top:0;z-index:10}
+@media(max-width:768px){
+  .admin-sidebar-desktop{display:none}
+  .admin-mobile-bar{display:flex}
+}
+/* ── Viewer/Editor responsive ───────────────────── */
+@media(max-width:520px){
+  .sg{grid-template-columns:repeat(2,1fr)}
+  .g2{grid-template-columns:1fr}
+  .gport{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
+  .pt th,.pt td{padding:8px 10px}
+}
+/* ── Portal textarea ────────────────────────────── */
+textarea.port-input{line-height:1.6;font-size:13px}
