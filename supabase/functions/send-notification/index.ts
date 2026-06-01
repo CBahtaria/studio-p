@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const BUSINESS_NAME = 'Fano Barbershop';
+
 const ALLOWED_ORIGINS = [
   'https://studio-p-prod.vercel.app',
   'https://studio-p.vercel.app',
@@ -39,7 +41,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const waNumber = Deno.env.get('WHATSAPP_NUMBER') ?? '26879657744';
+    const waNumber = Deno.env.get('WHATSAPP_NUMBER') ?? '26879333760';
 
     const { bookingId, type = 'confirmation' }: { bookingId: string; type: NotificationType } = await req.json();
 
@@ -77,9 +79,9 @@ Deno.serve(async (req: Request) => {
     const clientEmail = booking.profiles?.email;
 
     const messages: Record<NotificationType, string> = {
-      confirmation: `✂️ Studio P Booking Confirmed!\n\nHi ${clientName},\nYour appointment is confirmed:\n📅 ${dateStr}\n⏰ ${timeStr}\n💈 ${booking.service}\n\nRef: ${bookingId}\n\nSee you soon!`,
-      reminder:     `⏰ Reminder: Studio P appointment tomorrow\n\nHi ${clientName},\nJust a reminder for ${dateStr} at ${timeStr}.\n💈 ${booking.service}\n\nRef: ${bookingId}`,
-      cancellation: `Studio P: Booking ${bookingId} cancelled.\n\nHi ${clientName}, your ${booking.service} on ${dateStr} at ${timeStr} has been cancelled. Book again at studio-p.vercel.app`,
+      confirmation: `✂️ Fano Barbershop — Booking Confirmed!\n\nHi ${clientName},\nYour appointment is confirmed:\n📅 ${dateStr}\n⏰ ${timeStr}\n💈 ${booking.service}\n\nRef: ${bookingId}\n📍 Kwaluseni, Manzini\n\nSee you soon! — ${BUSINESS_NAME}`,
+      reminder:     `⏰ Reminder: Fano Barbershop appointment tomorrow\n\nHi ${clientName},\nJust a reminder for ${dateStr} at ${timeStr}.\n💈 ${booking.service}\n\nRef: ${bookingId}\n📍 Kwaluseni, Manzini`,
+      cancellation: `Fano Barbershop: Booking ${bookingId} cancelled.\n\nHi ${clientName}, your ${booking.service} on ${dateStr} at ${timeStr} has been cancelled.\nBook again at studio-p-prod.vercel.app`,
     };
 
     const waText = encodeURIComponent(messages[type]);
@@ -90,16 +92,16 @@ Deno.serve(async (req: Request) => {
     // Send email via Resend if configured
     if (resendApiKey && clientEmail) {
       const emailSubjects: Record<NotificationType, string> = {
-        confirmation: `Booking Confirmed — ${booking.service} at Studio P`,
-        reminder:     `Reminder: Your Studio P appointment tomorrow`,
-        cancellation: `Studio P Booking Cancelled — ${bookingId}`,
+        confirmation: `Booking Confirmed — ${booking.service} at ${BUSINESS_NAME}`,
+        reminder:     `Reminder: Your ${BUSINESS_NAME} appointment tomorrow`,
+        cancellation: `${BUSINESS_NAME} Booking Cancelled — ${bookingId}`,
       };
 
       const emailRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'Studio P <noreply@studiop.sz>',
+          from: 'Fano Barbershop <noreply@studiop.sz>',
           to: [clientEmail],
           subject: emailSubjects[type],
           text: messages[type],
