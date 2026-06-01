@@ -324,9 +324,9 @@ function App() {
       <MacBar user={user} onSignIn={() => setAuthOpen(true)} onSignOut={handleSignOut} />
 
       {page === 'landing' && <LandingPage onSignIn={() => setAuthOpen(true)} />}
-      {page === 'admin'   && user?.role === 'admin'  && <AdminPortal  user={user} onClose={() => handleNav('landing')} />}
-      {page === 'editor'  && user?.role === 'editor' && <EditorPortal user={user} onClose={() => handleNav('landing')} />}
-      {page === 'viewer'  && user && <ViewerPortal user={user} onClose={() => handleNav('landing')} />}
+      {page === 'admin'   && user?.role === 'admin'  && <AdminPortal  user={user} onClose={() => handleNav('landing')} onSignOut={handleSignOut} />}
+      {page === 'editor'  && user?.role === 'editor' && <EditorPortal user={user} onClose={() => handleNav('landing')} onSignOut={handleSignOut} />}
+      {page === 'viewer'  && user && <ViewerPortal user={user} onClose={() => handleNav('landing')} onSignOut={handleSignOut} />}
 
       <Dock user={user} page={page} onNav={handleNav} />
       {!user && <MobileSignIn onSignIn={() => setAuthOpen(true)} />}

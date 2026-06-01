@@ -43,11 +43,12 @@ const HERO_IMGS = [
 interface ViewerPortalProps {
   user: UserProfile;
   onClose: () => void;
+  onSignOut: () => void;
 }
 
 type BookStep = 'select' | 'validating' | 'done';
 
-export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
+export function ViewerPortal({ user, onClose, onSignOut }: ViewerPortalProps) {
   const [section, setSection]   = useState<'home' | 'book' | 'history'>('home');
   const [svc, setSvc]           = useState('');
   const [date, setDate]         = useState('');
@@ -128,16 +129,21 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
             {firstName}'s<br/>
             <em style={{ fontStyle: 'italic', color: 'var(--brass)' }}>Space.</em>
           </h1>
-          <div style={{ display: 'flex', gap: 28, marginTop: 18 }}>
+          <div style={{ display: 'flex', gap: 28, marginTop: 18, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             {[{ v: String(user.visitCount || 0), l: 'Visits' }, { v: tierLabel, l: 'Tier' }].map(s => (
               <div key={s.l}>
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.6rem', color: 'var(--view-a)', lineHeight: 1 }}>{s.v}</div>
                 <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.2em', color: 'var(--stone)', marginTop: 2, textTransform: 'uppercase' }}>{s.l}</div>
               </div>
             ))}
-            <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: '1px solid var(--view-b)', color: 'var(--view-m)', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer', alignSelf: 'flex-end' }}>
-              ← Home
-            </button>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--view-b)', color: 'var(--view-m)', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer' }}>
+                ← Home
+              </button>
+              <button onClick={onSignOut} style={{ background: 'rgba(248,113,113,.1)', border: '1px solid rgba(248,113,113,.25)', color: '#f87171', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer' }}>
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -162,16 +168,36 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
         {section === 'home' && (
           <div>
             <div className="pc">
-              <div className="pc-h"><span className="pc-t">Upcoming Appointments</span></div>
+              <div className="pc-h">
+                <span className="pc-t">Upcoming Appointments</span>
+                <button className="pbg" onClick={() => setSection('book')} style={{ fontSize: 9 }}>+ Book</button>
+              </div>
               <div style={{ padding: '4px 18px' }}>
-                <div className="bki">
-                  <div className="bkav">L</div>
-                  <div style={{ flex: 1 }}>
-                    <div className="bkn">Signature Fade</div>
-                    <div className="bkm">P. Dlamini · Tomorrow 14:30</div>
-                  </div>
-                  <span className="bkst confirmed">confirmed</span>
-                </div>
+                {(() => {
+                  const upcoming = history.filter(b => new Date(b.scheduled_at) > new Date() && b.status !== 'cancelled').slice(0, 3);
+                  if (histLoading) return <div style={{ padding: '16px 0', color: 'var(--view-m)', fontFamily: 'DM Mono, monospace', fontSize: 10, textAlign: 'center' }}>Loading…</div>;
+                  if (upcoming.length === 0) return (
+                    <div style={{ padding: '16px 0', color: 'var(--view-m)', fontSize: 12, textAlign: 'center' }}>
+                      No upcoming appointments.{' '}
+                      <button onClick={() => setSection('book')} style={{ background: 'none', border: 'none', color: 'var(--view-a)', cursor: 'pointer', fontSize: 12, minHeight: 'unset', padding: 0, fontFamily: 'inherit' }}>Book now →</button>
+                    </div>
+                  );
+                  return upcoming.map(b => {
+                    const d = new Date(b.scheduled_at);
+                    const dateStr = d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
+                    const timeStr = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    return (
+                      <div key={b.id} className="bki">
+                        <div className="bkav">{b.service?.[0] ?? '✦'}</div>
+                        <div style={{ flex: 1 }}>
+                          <div className="bkn">{b.service}</div>
+                          <div className="bkm">{b.barber} · {dateStr} {timeStr}</div>
+                        </div>
+                        <span className={`bkst ${b.status}`}>{b.status}</span>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
@@ -326,19 +352,37 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
 
 // ── Editor Portal ────────────────────────────────
 
+interface Post {
+  id: string;
+  author_id: string;
+  author_name: string;
+  text: string;
+  tag: string;
+  likes: number;
+  created_at: string;
+}
+
+const POST_TAGS = ['CULTURE', 'TIPS', 'UPDATE', 'PROMO', 'EVENT'] as const;
+
 interface EditorPortalProps {
   user: UserProfile;
   onClose: () => void;
+  onSignOut: () => void;
 }
 
 type EditorSection = 'posts' | 'services' | 'media';
 
-export function EditorPortal({ user, onClose }: EditorPortalProps) {
-  const [section, setSection]     = useState<EditorSection>('posts');
-  const [posts] = useState([
-    { id: 'p1', author: user.name, text: 'Fresh fade of the day. Precision work.', likes: 12, tag: 'CULTURE' },
-    { id: 'p2', author: user.name, text: 'New styling tips: hot towel ritual — a thread.', likes: 8, tag: 'TIPS' },
-  ]);
+export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
+  const [section, setSection]         = useState<EditorSection>('posts');
+  const [posts, setPosts]             = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError]   = useState(false);
+  const [newPostOpen, setNewPostOpen] = useState(false);
+  const [newPostText, setNewPostText] = useState('');
+  const [newPostTag, setNewPostTag]   = useState<typeof POST_TAGS[number]>('CULTURE');
+  const [posting, setPosting]         = useState(false);
+  const [editId, setEditId]           = useState<string | null>(null);
+  const [editText, setEditText]       = useState('');
   const [bgIdx] = useState(1);
   const [mediaQueue, setMediaQueue]   = useState<GalleryItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
@@ -351,6 +395,15 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
     document.documentElement.style.setProperty('--port-a2',   'var(--edit-a2)');
     document.documentElement.style.setProperty('--port-t',    'var(--edit-t)');
     document.documentElement.style.setProperty('--port-m',    'var(--edit-m)');
+
+    setPostsLoading(true);
+    Promise.resolve(
+      supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(30)
+    ).then(({ data, error }) => {
+      if (error) { logger.warn('EditorPortal', 'posts fetch failed', { error: error.message }); setPostsError(true); }
+      else setPosts((data ?? []) as Post[]);
+      setPostsLoading(false);
+    }).catch(() => { setPostsError(true); setPostsLoading(false); });
 
     setMediaLoading(true);
     Promise.resolve(
@@ -371,6 +424,33 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
       .forEach(v => document.documentElement.style.removeProperty(v));
   }, []);
 
+  const submitPost = async () => {
+    if (!newPostText.trim()) return;
+    setPosting(true);
+    const { data, error } = await supabase.from('announcements').insert({
+      author_id: user.id, author_name: user.name ?? 'Editor',
+      text: newPostText.trim(), tag: newPostTag,
+    }).select().single();
+    if (!error && data) {
+      setPosts(prev => [data as Post, ...prev]);
+      setNewPostText(''); setNewPostOpen(false);
+    } else logger.error('EditorPortal', 'post insert failed', { error: error?.message });
+    setPosting(false);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editText.trim()) return;
+    const { error } = await supabase.from('announcements').update({ text: editText.trim() }).eq('id', id);
+    if (!error) { setPosts(prev => prev.map(p => p.id === id ? { ...p, text: editText.trim() } : p)); setEditId(null); }
+    else logger.error('EditorPortal', 'post update failed', { error: error.message });
+  };
+
+  const deletePost = async (id: string) => {
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (!error) setPosts(prev => prev.filter(p => p.id !== id));
+    else logger.error('EditorPortal', 'post delete failed', { error: error.message });
+  };
+
   return (
     <div className="portal-enter" style={{ minHeight: 'calc(100vh - 80px)', background: 'var(--edit-bg)' }}>
 
@@ -388,9 +468,14 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
           <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--edit-m)', marginTop: 14, letterSpacing: '.06em' }}>
             {user.name} · Content Creator
           </p>
-          <button onClick={onClose} style={{ position: 'absolute', bottom: 36, right: 28, background: 'none', border: '1px solid var(--edit-b)', color: 'var(--edit-m)', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer' }}>
-            ← Home
-          </button>
+          <div style={{ position: 'absolute', bottom: 36, right: 28, display: 'flex', gap: 8 }}>
+            <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--edit-b)', color: 'var(--edit-m)', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer' }}>
+              ← Home
+            </button>
+            <button onClick={onSignOut} style={{ background: 'rgba(248,113,113,.1)', border: '1px solid rgba(248,113,113,.25)', color: '#f87171', borderRadius: 8, padding: '6px 14px', fontSize: 10, minHeight: 'unset', fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer' }}>
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
 
@@ -413,31 +498,99 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
         {/* Posts */}
         {section === 'posts' && (
           <div>
+            {/* New post form */}
             <div className="pc">
               <div className="pc-h">
-                <span className="pc-t">Trending Tags</span>
+                <span className="pc-t">New Post</span>
+                <button className="pb" onClick={() => setNewPostOpen(v => !v)} style={{ fontSize: 9 }}>
+                  {newPostOpen ? '✕ Cancel' : '+ Write'}
+                </button>
               </div>
-              <div className="pc-b">
-                {['#FadeCulture', '#TaperSeason', '#EswatiniStyle', '#StudioP', '#PrecisionGrooming'].map(tag => (
-                  <span key={tag} className={`chip${tag === '#FadeCulture' ? ' active' : ''}`}>{tag}</span>
-                ))}
-              </div>
+              {newPostOpen && (
+                <div className="pc-b" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <textarea
+                    className="port-input"
+                    placeholder="What's happening at the barbershop…"
+                    value={newPostText}
+                    onChange={e => setNewPostText(e.target.value)}
+                    maxLength={1000}
+                    rows={4}
+                    style={{ resize: 'vertical' }}
+                  />
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {POST_TAGS.map(t => (
+                      <button key={t} onClick={() => setNewPostTag(t)} style={{
+                        background: newPostTag === t ? 'var(--edit-a)' : 'transparent',
+                        color: newPostTag === t ? 'var(--edit-bg)' : 'var(--edit-m)',
+                        border: `1px solid ${newPostTag === t ? 'var(--edit-a)' : 'var(--edit-b)'}`,
+                        borderRadius: 4, padding: '4px 10px', fontSize: 9,
+                        fontFamily: 'DM Mono, monospace', letterSpacing: '.1em',
+                        cursor: 'pointer', minHeight: 'unset',
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--edit-m)' }}>{newPostText.length}/1000</span>
+                    <button className="pb" onClick={submitPost} disabled={posting || !newPostText.trim()} style={{ fontSize: 9 }}>
+                      {posting ? 'Publishing…' : 'Publish Post'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Posts list */}
             <div className="pc">
               <div className="pc-h">
-                <span className="pc-t">Your Posts</span>
-                <button className="pb">+ Write New</button>
+                <span className="pc-t">Published Posts</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--edit-m)' }}>{posts.length}</span>
               </div>
               <div style={{ padding: '4px 18px' }}>
-                {posts.map(p => (
-                  <div key={p.id} className="bki">
-                    <div className="bkav" style={{ background: 'var(--edit-b)' }}>{user.name?.[0] ?? '?'}</div>
-                    <div style={{ flex: 1 }}>
-                      <div className="bkn">{p.text}</div>
-                      <div className="bkm">♥ {p.likes} likes · <span style={{ color: 'var(--brass)', letterSpacing: '.1em' }}>{p.tag}</span></div>
-                    </div>
-                    <button className="pbg" style={{ minHeight: 'unset', padding: '5px 10px', fontSize: 9 }}>Edit</button>
+                {postsLoading && <div style={{ padding: '16px 0', color: 'var(--edit-m)', fontFamily: 'DM Mono, monospace', fontSize: 10, textAlign: 'center' }}>Loading…</div>}
+                {postsError && !postsLoading && (
+                  <div style={{ padding: '16px 0', color: 'var(--stone)', fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
+                    Posts table not found. Apply migration 011 in Supabase SQL editor to enable this feature.
+                  </div>
+                )}
+                {!postsLoading && !postsError && posts.length === 0 && (
+                  <div style={{ padding: '16px 0', color: 'var(--edit-m)', fontSize: 12, textAlign: 'center' }}>No posts yet. Write the first one above.</div>
+                )}
+                {!postsLoading && posts.map(p => (
+                  <div key={p.id} style={{ padding: '14px 0', borderBottom: '1px solid var(--edit-b)' }}>
+                    {editId === p.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <textarea
+                          className="port-input"
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          maxLength={1000}
+                          rows={3}
+                          style={{ resize: 'vertical' }}
+                        />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="pb" onClick={() => saveEdit(p.id)} style={{ fontSize: 9 }}>Save</button>
+                          <button className="pbg" onClick={() => setEditId(null)} style={{ fontSize: 9 }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        <div className="bkav" style={{ background: 'var(--edit-b)', flexShrink: 0 }}>{(p.author_name ?? user.name)?.[0] ?? '?'}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--brass)', letterSpacing: '.1em', border: '1px solid var(--brass-d)', padding: '2px 6px', borderRadius: 3 }}>{p.tag}</span>
+                            <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--edit-m)' }}>{new Date(p.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</span>
+                          </div>
+                          <div className="bkn" style={{ lineHeight: 1.5, fontSize: 13 }}>{p.text}</div>
+                          <div className="bkm" style={{ marginTop: 6 }}>♥ {p.likes} · {p.author_name}</div>
+                        </div>
+                        {p.author_id === user.id && (
+                          <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                            <button className="pbg" onClick={() => { setEditId(p.id); setEditText(p.text); }} style={{ minHeight: 'unset', padding: '4px 8px', fontSize: 8 }}>Edit</button>
+                            <button onClick={() => deletePost(p.id)} style={{ minHeight: 'unset', padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.1)', border: '1px solid rgba(248,113,113,.2)', color: '#f87171', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
