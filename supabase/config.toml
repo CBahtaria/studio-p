@@ -34,6 +34,7 @@ additional_redirect_urls = [
   "http://localhost:5173/auth/callback",
   "https://studio-p-prod.vercel.app/auth/callback",
   "https://studiop.sz/auth/callback",
+  "https://*.vercel.app/auth/callback",
 ]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true

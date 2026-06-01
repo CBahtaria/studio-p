@@ -18,7 +18,7 @@ export function PrivacyPage() {
         </p>
 
         <p style={p}>
-          Studio P ("we," "our," or "us") operates the Studio P booking platform at studio-p-prod.vercel.app.
+          Fano Barbershop, operated by Mfanomuhle Tsabedze ("we," "our," or "us"), operates the booking platform at studio-p-prod.vercel.app.
           This Privacy Policy explains how we collect, use, disclose, and protect your personal information
           when you use our services. By using Studio P, you agree to the practices described here.
         </p>
@@ -165,7 +165,7 @@ export function PrivacyPage() {
           For privacy questions, data requests, or to exercise your rights, contact Studio P via:
         </p>
         <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
-          <li style={li}>WhatsApp: +268 7965 7744</li>
+          <li style={li}>WhatsApp: +268 7933 3760</li>
           <li style={li}>Platform: use the Contact button on the Studio P landing page</li>
         </ul>
 

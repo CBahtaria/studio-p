@@ -34,7 +34,8 @@
     }
   ],
   "crons": [
-    { "path": "/api/cleanup", "schedule": "0 3 * * *" }
+    { "path": "/api/cleanup",       "schedule": "0 3 * * *" },
+    { "path": "/api/daily-report",  "schedule": "0 4 * * *" }
   ],
   "env": {
     "VITE_APP_ENV": "production",

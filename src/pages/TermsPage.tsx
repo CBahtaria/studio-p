@@ -17,8 +17,8 @@ export function TermsPage() {
         </p>
 
         <p style={p}>
-          Please read these Terms of Service ("Terms") carefully before using Studio P (the "Service"),
-          operated by Studio P Barbershop ("Studio P," "we," "our," or "us"). By creating an account or
+          Please read these Terms of Service ("Terms") carefully before using Fano Barbershop / Studio-P (the "Service"),
+          operated by Mfanomuhle Tsabedze trading as Fano Barbershop ("we," "our," or "us"). By creating an account or
           using any part of the Service, you agree to be bound by these Terms.
         </p>
 
@@ -41,7 +41,7 @@ export function TermsPage() {
         <h2 style={h2}>3. Account Registration</h2>
         <p style={p}>
           You are responsible for maintaining the confidentiality of your account credentials and for all
-          activity that occurs under your account. Notify us immediately via WhatsApp (+268 7965 7744) if
+          activity that occurs under your account. Notify us immediately via WhatsApp (+268 7933 3760) if
           you suspect unauthorised access. We reserve the right to suspend or terminate accounts that
           violate these Terms.
         </p>
@@ -49,7 +49,7 @@ export function TermsPage() {
         <h2 style={h2}>4. Bookings</h2>
         <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
           <li style={li}>Booking requests are subject to staff availability and approval.</li>
-          <li style={li}>Once confirmed, if you need to cancel or reschedule, please contact Studio P at least 2 hours before your appointment via WhatsApp (+268 7965 7744).</li>
+          <li style={li}>Once confirmed, if you need to cancel or reschedule, please contact Studio P at least 2 hours before your appointment via WhatsApp (+268 7933 3760).</li>
           <li style={li}>Repeated no-shows may result in restricted booking access.</li>
           <li style={li}>Prices displayed are in Eswatini Lilangeni (SWL/E) and are subject to change without prior notice on the platform, though booked prices will be honoured.</li>
         </ul>
@@ -140,7 +140,7 @@ export function TermsPage() {
 
         <h2 style={h2}>14. Contact</h2>
         <p style={p}>
-          Questions about these Terms? Contact Studio P via WhatsApp at +268 7965 7744 or through the
+          Questions about these Terms? Contact Studio P via WhatsApp at +268 7933 3760 or through the
           Contact button on the Studio P landing page.
         </p>
 
