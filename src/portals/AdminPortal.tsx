@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { monitor } from '@/core/monitor';
 import { logger } from '@/core/logger';
 import { AgentPanel } from '@/components/AgentPanel';
+import { BUSINESS } from '@/config/business';
 
 interface RealBooking {
   id: string;
@@ -38,11 +39,25 @@ interface PendingMedia {
   uploader_id: string;
 }
 
+interface DailyReport {
+  report_date: string;
+  total_bookings: number;
+  confirmed: number;
+  pending_count: number;
+  cancelled: number;
+  completed: number;
+  total_revenue_swl: number;
+  appointments: Array<{ id: string; clientName: string; service: string; time: string; status: string; priceSWL: number }>;
+  whatsapp_message: string | null;
+  generated_at: string;
+}
+
 const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
 const HERO_IMG = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1400&q=70';
 
 const NAV = [
   { id: 'dashboard', icon: '⚡', label: 'Dashboard',  badge: null },
+  { id: 'reports',   icon: '📊', label: 'Reports',    badge: null },
   { id: 'bookings',  icon: '📅', label: 'Bookings',   badge: null },
   { id: 'users',     icon: '👥', label: 'Users',      badge: null },
   { id: 'gallery',   icon: '🖼️', label: 'Gallery',    badge: null },
@@ -67,7 +82,8 @@ const LOG_COLOR: Record<string, string> = {
 };
 
 const SECTION_META: Record<string, { eyebrow: string; title: string; sub?: string }> = {
-  dashboard: { eyebrow: 'Command Centre',        title: 'Dashboard',         sub: 'Live operations overview for Studio P.' },
+  dashboard: { eyebrow: 'Command Centre',        title: 'Dashboard',         sub: 'Live operations overview for Fano Barbershop.' },
+  reports:   { eyebrow: 'Daily Intelligence',    title: 'Reports & Briefing', sub: "Mfanomuhle's daily schedule, revenue summary, and one-tap WhatsApp briefings." },
   bookings:  { eyebrow: 'Appointment Management', title: 'Bookings',          sub: 'Manage, confirm, and track every chair.' },
   users:     { eyebrow: 'Member Directory',       title: 'Members' },
   gallery:   { eyebrow: 'Media Moderation',       title: 'Gallery',           sub: 'Approve or reject submitted photos and videos.' },
@@ -101,10 +117,14 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
   const [agResult, setAgResult]       = useState<OrchestrationResult | null>(null);
   const [running, setRunning]         = useState(false);
   const [health, setHealth]           = useState<HealthStatus | null>(null);
-  const [bookings, setBookings]       = useState<RealBooking[]>([]);
-  const [users, setUsers]             = useState<RealUser[]>([]);
+  const [bookings, setBookings]         = useState<RealBooking[]>([]);
+  const [users, setUsers]               = useState<RealUser[]>([]);
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoading, setDataLoading]   = useState(false);
+  const [todayReport, setTodayReport]   = useState<DailyReport | null>(null);
+  const [reportHistory, setReportHistory] = useState<DailyReport[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportWaUrl, setReportWaUrl]   = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--port-bg',   'var(--admin-bg)');
@@ -116,6 +136,23 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
     document.documentElement.style.setProperty('--port-m',    'var(--admin-m)');
 
     monitor.getHealth().then(setHealth).catch(e => logger.warn('AdminPortal', 'health check failed', { error: String(e) }));
+
+    // Load today's report + last 7 days of history
+    const todayStr = new Date().toISOString().slice(0, 10);
+    supabase
+      .from('daily_reports')
+      .select('*')
+      .gte('report_date', new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))
+      .order('report_date', { ascending: false })
+      .limit(8)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setReportHistory(data as DailyReport[]);
+          const today = (data as DailyReport[]).find(r => r.report_date === todayStr);
+          if (today) setTodayReport(today);
+        }
+      })
+      .catch(e => logger.warn('AdminPortal', 'reports fetch failed', { error: String(e) }));
 
     setDataLoading(true);
     Promise.all([
@@ -152,6 +189,41 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
       logger.error('AdminPortal', 'Demo validation error', { error: String(e) });
     } finally {
       setRunning(false);
+    }
+  };
+
+  const generateReport = async (dateStr?: string) => {
+    setReportLoading(true);
+    setReportWaUrl(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('daily-report', {
+        body: { trigger: 'manual', date: dateStr },
+      });
+      if (error) throw new Error(error.message);
+      const result = data as { ok: boolean; reportDate: string; stats: Record<string, number>; whatsappUrl: string; message: string; appointments: DailyReport['appointments'] };
+      if (result.ok) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const newReport: DailyReport = {
+          report_date: result.reportDate,
+          total_bookings: result.stats.total,
+          confirmed: result.stats.confirmed,
+          pending_count: result.stats.pending,
+          cancelled: result.stats.cancelled,
+          completed: result.stats.completed,
+          total_revenue_swl: result.stats.revenue,
+          appointments: result.appointments,
+          whatsapp_message: result.message,
+          generated_at: new Date().toISOString(),
+        };
+        if (result.reportDate === todayStr) setTodayReport(newReport);
+        setReportHistory(prev => [newReport, ...prev.filter(r => r.report_date !== result.reportDate)].slice(0, 8));
+        setReportWaUrl(result.whatsappUrl);
+        logger.info('AdminPortal', 'Daily report generated', { date: result.reportDate });
+      }
+    } catch (e) {
+      logger.error('AdminPortal', 'Report generation failed', { error: String(e) });
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -283,6 +355,140 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {section === 'reports' && (
+            <div style={{ animation: 'portIn .25s ease' }}>
+              {/* Licence card */}
+              <div className="pc" style={{ marginBottom: 16 }}>
+                <div className="pc-h"><span className="pc-t">Trading Licence {BUSINESS.licence.renewedYear()}</span><span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: '#52E89A', letterSpacing: '.2em' }}>● ACTIVE</span></div>
+                <div className="pc-b" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 12 }}>
+                  {[
+                    { label: 'Issued To',     value: BUSINESS.licence.issuedTo },
+                    { label: 'Business',      value: BUSINESS.licence.businessName },
+                    { label: 'Type',          value: BUSINESS.licence.type },
+                    { label: 'Area',          value: BUSINESS.licence.area },
+                    { label: 'Address',       value: BUSINESS.address },
+                    { label: 'Expires',       value: `31 Dec ${BUSINESS.licence.renewedYear()} · ${BUSINESS.licence.note}` },
+                  ].map(item => (
+                    <div key={item.label}>
+                      <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, letterSpacing: '.2em', color: 'var(--port-m)', textTransform: 'uppercase', marginBottom: 3 }}>{item.label}</div>
+                      <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--port-t)' }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Today's briefing */}
+              <div className="pc" style={{ marginBottom: 16 }}>
+                <div className="pc-h">
+                  <span className="pc-t">Today's Briefing</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="pb" onClick={() => generateReport()} disabled={reportLoading}>
+                      {reportLoading ? 'Generating…' : 'Generate Now'}
+                    </button>
+                    {reportWaUrl && (
+                      <a href={reportWaUrl} target="_blank" rel="noopener noreferrer" className="pb"
+                        style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        📲 Send via WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="pc-b">
+                  {todayReport ? (
+                    <div>
+                      <div className="sg" style={{ marginBottom: 16 }}>
+                        {[
+                          { v: String(todayReport.total_bookings),    l: 'Appointments' },
+                          { v: String(todayReport.confirmed),         l: 'Confirmed' },
+                          { v: String(todayReport.pending_count),     l: 'Pending' },
+                          { v: `E${Math.round(todayReport.total_revenue_swl / 100)}`, l: 'Revenue' },
+                        ].map(s => (
+                          <div key={s.l} className="sc">
+                            <div className="sc-v">{s.v}</div>
+                            <div className="sc-l">{s.l}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {todayReport.appointments.length > 0 ? (
+                        <div>
+                          <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.2em', color: 'var(--port-m)', marginBottom: 10, textTransform: 'uppercase' }}>Today's Schedule</div>
+                          {todayReport.appointments.map(apt => (
+                            <div key={apt.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--port-bord)' }}>
+                              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--port-a)', minWidth: 44 }}>{apt.time}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--port-t)' }}>{apt.clientName}</div>
+                                <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--port-m)' }}>{apt.service}</div>
+                              </div>
+                              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--port-a)' }}>E{Math.round(apt.priceSWL / 100)}</span>
+                              <span className={`bkst ${apt.status}`}>{apt.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--port-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>No appointments today.</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--port-m)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
+                      No report yet. Click "Generate Now" to create today's briefing.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Operating Hours */}
+              <div className="pc">
+                <div className="pc-h"><span className="pc-t">Operating Hours</span></div>
+                <div className="pc-b">
+                  {[
+                    { days: 'Monday – Thursday', hours: '08:00 – 17:00' },
+                    { days: 'Friday – Saturday', hours: '08:00 – 19:00' },
+                    { days: 'Sunday',            hours: 'Closed' },
+                  ].map(row => (
+                    <div key={row.days} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--port-bord)', fontFamily: 'DM Mono, monospace', fontSize: 11 }}>
+                      <span style={{ color: 'var(--port-t)' }}>{row.days}</span>
+                      <span style={{ color: row.hours === 'Closed' ? 'var(--port-m)' : 'var(--port-a)' }}>{row.hours}</span>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 12, fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--port-m)' }}>
+                    Contact: {BUSINESS.phone.primaryDisplay} · {BUSINESS.phone.secondaryDisplay}
+                  </div>
+                </div>
+              </div>
+
+              {/* Report history */}
+              {reportHistory.length > 0 && (
+                <div className="pc" style={{ marginTop: 16 }}>
+                  <div className="pc-h"><span className="pc-t">Report History</span></div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="pt">
+                      <thead><tr><th>Date</th><th>Bookings</th><th>Confirmed</th><th>Revenue</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {reportHistory.map(r => (
+                          <tr key={r.report_date}>
+                            <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--port-t)' }}>{r.report_date}</td>
+                            <td style={{ textAlign: 'center' }}>{r.total_bookings}</td>
+                            <td style={{ textAlign: 'center', color: '#52E89A' }}>{r.confirmed}</td>
+                            <td style={{ fontFamily: 'DM Mono, monospace', color: 'var(--port-a)' }}>E{Math.round(r.total_revenue_swl / 100)}</td>
+                            <td>
+                              {r.whatsapp_message && (
+                                <a href={`https://wa.me/${BUSINESS.phone.primary}?text=${encodeURIComponent(r.whatsapp_message)}`}
+                                  target="_blank" rel="noopener noreferrer" className="pb"
+                                  style={{ textDecoration: 'none', padding: '3px 7px', fontSize: 8, minHeight: 'unset', display: 'inline-block' }}>
+                                  📲 WA
+                                </a>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

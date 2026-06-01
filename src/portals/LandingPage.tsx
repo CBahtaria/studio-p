@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useServices } from '@/hooks/useServices';
 import { useReveal } from '@/hooks/useReveal';
 import { logger } from '@/core/logger';
+import { BUSINESS, getTodayHours } from '@/config/business';
 
 const FALLBACK_BG = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&q=80',
@@ -191,15 +192,30 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             </span>
           </h1>
           <p style={{ maxWidth: 500, margin: '28px 0', color: 'var(--stone)', fontSize: 15, lineHeight: 1.7, animation: 'slideUp .6s .2s both' }}>
-            Walk in as yourself. Leave as royalty. Fanu's Studio-P is Matsapha's home of precision craftsmanship.
+            Walk in as yourself. Leave as royalty. {BUSINESS.tradingAs} is Kwaluseni's home of precision craftsmanship.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', animation: 'slideUp .6s .35s both' }}>
-            <a href="https://wa.me/26879657744" target="_blank" rel="noopener noreferrer" className="btn-primary">
+            <a href={`https://wa.me/${BUSINESS.phone.primary}`} target="_blank" rel="noopener noreferrer" className="btn-primary">
               Book Your Chair
             </a>
             <button className="btn-outline" onClick={onSignIn}>
-              Join Fanu's Studio-P
+              Join {BUSINESS.tradingAs}
             </button>
+          </div>
+          <div style={{ marginTop: 20, animation: 'slideUp .6s .5s both' }}>
+            {(() => {
+              const todayHours = getTodayHours();
+              return (
+                <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.18em', color: 'var(--stone)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: todayHours ? '#52E89A' : '#f87171', display: 'inline-block', flexShrink: 0 }}/>
+                  {todayHours
+                    ? `OPEN TODAY · ${todayHours.open}–${todayHours.close}`
+                    : 'CLOSED TODAY'}
+                  <span style={{ color: 'var(--bord)', margin: '0 4px' }}>·</span>
+                  <span style={{ opacity: .6 }}>{BUSINESS.phone.primaryDisplay}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -327,6 +343,57 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
         </div>
       </div>
 
+      {/* Hours & Contact */}
+      <div style={{ borderTop: '1px solid var(--bord)', background: 'var(--ink2)' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '48px 32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 32 }}>
+            <div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 12, textTransform: 'uppercase' }}>
+                Operating Hours
+              </div>
+              {[
+                { days: 'Mon – Thu', hours: '08:00 – 17:00' },
+                { days: 'Fri – Sat', hours: '08:00 – 19:00' },
+                { days: 'Sunday',    hours: 'Closed' },
+              ].map(row => (
+                <div key={row.days} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, maxWidth: 240 }}>
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--stone)' }}>{row.days}</span>
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: row.hours === 'Closed' ? 'var(--stone)' : 'var(--brass)' }}>{row.hours}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 12, textTransform: 'uppercase' }}>
+                Contact
+              </div>
+              <a href={`https://wa.me/${BUSINESS.phone.primary}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'block', fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--brass)', textDecoration: 'none', marginBottom: 6 }}>
+                {BUSINESS.phone.primaryDisplay}
+              </a>
+              <a href={`https://wa.me/${BUSINESS.phone.secondary}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'block', fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--stone)', textDecoration: 'none', marginBottom: 12 }}>
+                {BUSINESS.phone.secondaryDisplay}
+              </a>
+              <div style={{ fontSize: 12, color: 'var(--stone)', lineHeight: 1.6 }}>
+                {BUSINESS.location}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 12, textTransform: 'uppercase' }}>
+                About
+              </div>
+              <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--parch)', marginBottom: 6 }}>
+                {BUSINESS.name}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--stone)', lineHeight: 1.7 }}>
+                {BUSINESS.owner} · Est. {BUSINESS.established}<br/>
+                {BUSINESS.address}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* CTA */}
       <div style={{ borderTop: '1px solid var(--bord)', padding: '80px 32px', textAlign: 'center' }}>
         <h2 style={{ fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(2.2rem, 5vw, 4.5rem)', letterSpacing: '-.02em', textTransform: 'uppercase', marginBottom: 24 }}>
@@ -338,9 +405,14 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
       {/* Footer */}
       <div style={{ borderTop: '1px solid var(--bord)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.2em' }}>
-          © {new Date().getFullYear()} STUDIO P · ESWATINI
-        </span>
+        <div>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.2em' }}>
+            © {new Date().getFullYear()} {BUSINESS.name.toUpperCase()} · ESWATINI
+          </span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--stone)', letterSpacing: '.1em', display: 'block', marginTop: 3, opacity: .5 }}>
+            Trading Licence {BUSINESS.licence.renewedYear()} · {BUSINESS.licence.issuedTo}
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: 24 }}>
           <a href="/privacy" style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.15em', textDecoration: 'none', textTransform: 'uppercase' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--brass)')}

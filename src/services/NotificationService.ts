@@ -1,5 +1,6 @@
 import type { Booking } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { BUSINESS } from '@/config/business';
 
 class NotificationService {
   private static instance: NotificationService;
@@ -11,14 +12,16 @@ class NotificationService {
 
   // ── WhatsApp booking URL ─────────────────────
   buildWhatsAppURL(booking: Booking, recipientNumber?: string): string {
-    const number = recipientNumber ?? import.meta.env.VITE_WHATSAPP_NUMBER ?? '26879657744';
+    const number = recipientNumber
+      ?? import.meta.env.VITE_WHATSAPP_NUMBER
+      ?? BUSINESS.phone.primary;
     const text = [
-      '✂️ Studio P Booking Request',
+      `✂️ ${BUSINESS.name} Booking Request`,
       `Service: ${booking.service}`,
       `Date: ${booking.date} at ${booking.time}`,
       `Ref: ${booking.id}`,
       '',
-      'Booked via studio-p.vercel.app',
+      'Booked via studio-p-prod.vercel.app',
     ].join('\n');
     return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
   }
@@ -43,7 +46,7 @@ class NotificationService {
 
   async sendBookingConfirmation(booking: Booking): Promise<void> {
     await this.showToast(
-      'Booking Confirmed — Studio P',
+      `Booking Confirmed — ${BUSINESS.name}`,
       `${booking.service} on ${booking.date} at ${booking.time}. Ref: ${booking.id}`,
     );
 
@@ -62,7 +65,7 @@ class NotificationService {
 
   async sendBookingReminder(booking: Booking): Promise<void> {
     await this.showToast(
-      'Studio P — Appointment Tomorrow',
+      `${BUSINESS.name} — Appointment Tomorrow`,
       `${booking.service} at ${booking.time}. Ref: ${booking.id}`,
     );
   }

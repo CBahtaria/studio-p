@@ -1,6 +1,28 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://esm.sh/zod@3';
 
+// Operating hours (Eswatini local time, UTC+2)
+// Key = JS getDay() value: 0=Sun … 6=Sat. null = closed.
+const HOURS: Record<number, { openMin: number; closeMin: number } | null> = {
+  0: null,
+  1: { openMin: 480, closeMin: 1020 },  // 08:00–17:00
+  2: { openMin: 480, closeMin: 1020 },
+  3: { openMin: 480, closeMin: 1020 },
+  4: { openMin: 480, closeMin: 1020 },
+  5: { openMin: 480, closeMin: 1140 },  // 08:00–19:00
+  6: { openMin: 480, closeMin: 1140 },
+};
+
+function isWithinOperatingHours(date: string, time: string): boolean {
+  // Parse date as local to get correct day of week (use noon to avoid DST edge)
+  const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
+  const slot = HOURS[dayOfWeek];
+  if (!slot) return false;
+  const [h, m] = time.split(':').map(Number);
+  const mins = h * 60 + m;
+  return mins >= slot.openMin && mins < slot.closeMin;
+}
+
 const ALLOWED_ORIGINS = [
   'https://studio-p-prod.vercel.app',
   'https://studio-p.vercel.app',
@@ -88,6 +110,10 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ approved: false, reason: 'Booking date must be in the future' }), { status: 400, headers: ch });
     }
 
+    if (!isWithinOperatingHours(date, time)) {
+      return new Response(JSON.stringify({ approved: false, reason: 'Outside operating hours. Mon–Thu 08:00–17:00, Fri–Sat 08:00–19:00. Closed Sunday.' }), { status: 400, headers: ch });
+    }
+
     const slotEnd = new Date(scheduledAt.getTime() + svc.duration_minutes * 60000);
     const { count: conflict } = await supabase
       .from('bookings')
@@ -113,9 +139,9 @@ Deno.serve(async (req: Request) => {
       .insert({
         id: bookingId,
         client_id: clientId,
-        client_name: profile?.name ?? 'Studio P Member',
+        client_name: profile?.name ?? 'Valued Client',
         service: svc.name,
-        barber: 'Any Available',
+        barber: 'Mfanomuhle Tsabedze',
         scheduled_at: scheduledAt.toISOString(),
         status: 'pending',
         price_swl: svc.price_swl,

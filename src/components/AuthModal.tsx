@@ -121,7 +121,18 @@ function SignInForm({ onSuccess, onForgotPassword, onVerified, selectedRole, onR
     return (
       <EmailVerification
         email={pendingEmail}
-        onVerified={() => onVerified ? onVerified() : setStep('form')}
+        onVerified={() => {
+          const profile = authService.getProfile();
+          if (profile) {
+            onSuccess(profile);
+          } else {
+            // Profile loading async via TOKEN_REFRESHED — subscribe once then navigate
+            const unsub = authService.onAuthStateChange((p) => {
+              if (p) { unsub(); onSuccess(p); }
+            });
+            setTimeout(() => { unsub(); if (onVerified) onVerified(); else setStep('form'); }, 5000);
+          }
+        }}
         onBack={() => setStep('form')}
       />
     );
@@ -469,7 +480,10 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
             <SignInForm
               onSuccess={onSuccess}
               onForgotPassword={(email) => { setResetEmail(email); setStep('forgot-password'); }}
-              onVerified={onClose}
+              onVerified={() => {
+                const profile = authService.getProfile();
+                if (profile) { onSuccess(profile); } else { onClose(); }
+              }}
               selectedRole={selectedRole}
               onRoleChange={setSelectedRole}
             />
@@ -484,7 +498,18 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
           {step === 'verify-email' && (
             <EmailVerification
               email={verifyEmail}
-              onVerified={onClose}
+              onVerified={() => {
+                const profile = authService.getProfile();
+                if (profile) {
+                  onSuccess(profile);
+                } else {
+                  // Wait for TOKEN_REFRESHED to complete fetchProfile, then navigate
+                  const unsub = authService.onAuthStateChange((p) => {
+                    if (p) { unsub(); onSuccess(p); }
+                  });
+                  setTimeout(() => { unsub(); onClose(); }, 5000);
+                }
+              }}
               onBack={() => setStep('form')}
             />
           )}
