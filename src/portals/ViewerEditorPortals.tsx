@@ -356,7 +356,7 @@ interface Post {
   id: string;
   author_id: string;
   author_name: string;
-  text: string;
+  body: string;
   tag: string;
   likes: number;
   created_at: string;
@@ -429,7 +429,7 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
     setPosting(true);
     const { data, error } = await supabase.from('announcements').insert({
       author_id: user.id, author_name: user.name ?? 'Editor',
-      text: newPostText.trim(), tag: newPostTag,
+      body: newPostText.trim(), tag: newPostTag,
     }).select().single();
     if (!error && data) {
       setPosts(prev => [data as Post, ...prev]);
@@ -440,8 +440,8 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
 
   const saveEdit = async (id: string) => {
     if (!editText.trim()) return;
-    const { error } = await supabase.from('announcements').update({ text: editText.trim() }).eq('id', id);
-    if (!error) { setPosts(prev => prev.map(p => p.id === id ? { ...p, text: editText.trim() } : p)); setEditId(null); }
+    const { error } = await supabase.from('announcements').update({ body: editText.trim() }).eq('id', id);
+    if (!error) { setPosts(prev => prev.map(p => p.id === id ? { ...p, body: editText.trim() } : p)); setEditId(null); }
     else logger.error('EditorPortal', 'post update failed', { error: error.message });
   };
 
@@ -580,12 +580,12 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
                             <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--brass)', letterSpacing: '.1em', border: '1px solid var(--brass-d)', padding: '2px 6px', borderRadius: 3 }}>{p.tag}</span>
                             <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--edit-m)' }}>{new Date(p.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</span>
                           </div>
-                          <div className="bkn" style={{ lineHeight: 1.5, fontSize: 13 }}>{p.text}</div>
+                          <div className="bkn" style={{ lineHeight: 1.5, fontSize: 13 }}>{p.body}</div>
                           <div className="bkm" style={{ marginTop: 6 }}>♥ {p.likes} · {p.author_name}</div>
                         </div>
                         {p.author_id === user.id && (
                           <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                            <button className="pbg" onClick={() => { setEditId(p.id); setEditText(p.text); }} style={{ minHeight: 'unset', padding: '4px 8px', fontSize: 8 }}>Edit</button>
+                            <button className="pbg" onClick={() => { setEditId(p.id); setEditText(p.body); }} style={{ minHeight: 'unset', padding: '4px 8px', fontSize: 8 }}>Edit</button>
                             <button onClick={() => deletePost(p.id)} style={{ minHeight: 'unset', padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.1)', border: '1px solid rgba(248,113,113,.2)', color: '#f87171', borderRadius: 4, cursor: 'pointer' }}>✕</button>
                           </div>
                         )}
