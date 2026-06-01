@@ -73,14 +73,15 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
   // Fetch approved media for hero + gallery
   useEffect(() => {
-    supabase
-      .from('gallery_items')
-      .select('id, url, caption, created_at')
-      .eq('approved', true)
-      .eq('media_type', 'image')
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
+    Promise.resolve(
+      supabase
+        .from('gallery_items')
+        .select('id, url, caption, created_at')
+        .eq('approved', true)
+        .eq('media_type', 'image')
+        .order('created_at', { ascending: false })
+        .limit(20)
+    ).then(({ data, error }) => {
         if (error) { logger.warn('LandingPage', 'gallery images fetch failed', { error: error.message }); return; }
         if (data && data.length > 0) {
           const photos: ClientPhoto[] = data.map(d => ({
@@ -93,22 +94,23 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           setClientPhotos(photos);
         }
       })
-      .catch(e => logger.warn('LandingPage', 'gallery images error', { error: String(e) }));
+      .catch((e: unknown) => logger.warn('LandingPage', 'gallery images error', { error: String(e) }));
 
-    supabase
-      .from('gallery_items')
-      .select('url')
-      .eq('approved', true)
-      .eq('media_type', 'video')
-      .order('created_at', { ascending: false })
-      .limit(5)
-      .then(({ data, error }) => {
+    Promise.resolve(
+      supabase
+        .from('gallery_items')
+        .select('url')
+        .eq('approved', true)
+        .eq('media_type', 'video')
+        .order('created_at', { ascending: false })
+        .limit(5)
+    ).then(({ data, error }) => {
         if (error) { logger.warn('LandingPage', 'gallery videos fetch failed', { error: error.message }); return; }
         if (data && data.length > 0) {
           setBgVideos(data.map(d => ({ url: d.url as string })));
         }
       })
-      .catch(e => logger.warn('LandingPage', 'gallery videos error', { error: String(e) }));
+      .catch((e: unknown) => logger.warn('LandingPage', 'gallery videos error', { error: String(e) }));
   }, []);
 
   // Rotate hero background (12 s for videos, 6 s for photos)

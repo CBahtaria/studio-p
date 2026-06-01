@@ -139,20 +139,21 @@ export function AdminPortal({ user, onClose }: AdminPortalProps) {
 
     // Load today's report + last 7 days of history
     const todayStr = new Date().toISOString().slice(0, 10);
-    supabase
-      .from('daily_reports')
-      .select('*')
-      .gte('report_date', new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))
-      .order('report_date', { ascending: false })
-      .limit(8)
-      .then(({ data }) => {
+    Promise.resolve(
+      supabase
+        .from('daily_reports')
+        .select('*')
+        .gte('report_date', new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))
+        .order('report_date', { ascending: false })
+        .limit(8)
+    ).then(({ data }) => {
         if (data && data.length > 0) {
           setReportHistory(data as DailyReport[]);
           const today = (data as DailyReport[]).find(r => r.report_date === todayStr);
           if (today) setTodayReport(today);
         }
       })
-      .catch(e => logger.warn('AdminPortal', 'reports fetch failed', { error: String(e) }));
+      .catch((e: unknown) => logger.warn('AdminPortal', 'reports fetch failed', { error: String(e) }));
 
     setDataLoading(true);
     Promise.all([
