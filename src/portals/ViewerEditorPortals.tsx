@@ -70,18 +70,19 @@ export function ViewerPortal({ user, onClose }: ViewerPortalProps) {
     document.documentElement.style.setProperty('--port-m',    'var(--view-m)');
 
     setHistLoading(true);
-    supabase
-      .from('bookings')
-      .select('id, service, barber, scheduled_at, price_swl, status')
-      .eq('client_id', user.id)
-      .order('scheduled_at', { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
+    Promise.resolve(
+      supabase
+        .from('bookings')
+        .select('id, service, barber, scheduled_at, price_swl, status')
+        .eq('client_id', user.id)
+        .order('scheduled_at', { ascending: false })
+        .limit(20)
+    ).then(({ data, error }) => {
         if (error) logger.warn('ViewerPortal', 'history fetch failed', { error: error.message });
         else setHistory((data ?? []) as BookingRecord[]);
         setHistLoading(false);
       })
-      .catch(e => { logger.warn('ViewerPortal', 'history fetch error', { error: String(e) }); setHistLoading(false); });
+      .catch((e: unknown) => { logger.warn('ViewerPortal', 'history fetch error', { error: String(e) }); setHistLoading(false); });
 
     return () => ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
       .forEach(v => document.documentElement.style.removeProperty(v));
@@ -352,18 +353,19 @@ export function EditorPortal({ user, onClose }: EditorPortalProps) {
     document.documentElement.style.setProperty('--port-m',    'var(--edit-m)');
 
     setMediaLoading(true);
-    supabase
-      .from('gallery_items')
-      .select('id, url, caption, approved, created_at')
-      .eq('approved', false)
-      .order('created_at', { ascending: false })
-      .limit(30)
-      .then(({ data, error }) => {
+    Promise.resolve(
+      supabase
+        .from('gallery_items')
+        .select('id, url, caption, approved, created_at')
+        .eq('approved', false)
+        .order('created_at', { ascending: false })
+        .limit(30)
+    ).then(({ data, error }) => {
         if (error) logger.warn('EditorPortal', 'media queue fetch failed', { error: error.message });
         else setMediaQueue((data ?? []) as GalleryItem[]);
         setMediaLoading(false);
       })
-      .catch(e => { logger.warn('EditorPortal', 'media queue error', { error: String(e) }); setMediaLoading(false); });
+      .catch((e: unknown) => { logger.warn('EditorPortal', 'media queue error', { error: String(e) }); setMediaLoading(false); });
 
     return () => ['--port-bg','--port-side','--port-bord','--port-a','--port-a2','--port-t','--port-m']
       .forEach(v => document.documentElement.style.removeProperty(v));
