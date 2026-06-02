@@ -52,7 +52,7 @@ interface DailyReport {
   generated_at: string;
 }
 
-const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'/%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.06\'/%3E%3C/svg%3E")`;
 const HERO_IMG = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1400&q=70';
 
 const NAV = [
@@ -289,7 +289,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
 
       {health && (
         <div style={{ padding: '10px 20px', borderTop: '1px solid var(--admin-b)' }}>
-          {[['API', health.api], ['DB', health.db]].map(([l, s]) => (
+          {[["API", health.api], ["DB", health.db]].map(([l, s]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: 'DM Mono, monospace', fontSize: 9 }}>
               <span style={{ color: 'var(--admin-m)' }}>{l}</span>
               <span style={{ color: s === 'up' ? '#52E89A' : '#f87171' }}>● {String(s).toUpperCase()}</span>
@@ -373,8 +373,8 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                 <div className="pc">
                   <div className="pc-h"><span className="pc-t">Activity Log</span><button className="pbg">Export</button></div>
                   <div className="slog" style={{ padding: '10px 18px' }}>
-                    {SYSTEM_LOGS.map((l, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 3 }}>
+                    {SYSTEM_LOGS.map(l => (
+                      <div key={l.t + l.msg} style={{ display: 'flex', gap: 10, marginBottom: 3 }}>
                         <span style={{ color: 'var(--port-m)', flexShrink: 0 }}>{l.t}</span>
                         <span style={{ color: LOG_COLOR[l.type] }}>{l.msg}</span>
                       </div>
@@ -722,8 +722,8 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
               <div className="pc">
                 <div className="pc-h"><span className="pc-t">System Log</span><button className="pbg">Clear</button></div>
                 <div className="slog" style={{ padding: '10px 18px', maxHeight: 300 }}>
-                  {SYSTEM_LOGS.map((l, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 3 }}>
+                  {SYSTEM_LOGS.map(l => (
+                    <div key={l.t + l.msg} style={{ display: 'flex', gap: 10, marginBottom: 3 }}>
                       <span style={{ color: 'var(--port-m)', flexShrink: 0 }}>{l.t}</span>
                       <span style={{ color: LOG_COLOR[l.type] }}>{l.msg}</span>
                     </div>
@@ -767,8 +767,8 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                         { table: 'bookings',     policy: 'insert_auth', role: 'authenticated', clause: 'auth.role() = authenticated' },
                         { table: 'user_profiles',policy: 'read_own',    role: 'authenticated', clause: 'id = auth.uid()' },
                         { table: 'gallery',      policy: 'public_read', role: 'anon',          clause: 'approved = true' },
-                      ].map((r, i) => (
-                        <tr key={i}>
+                      ].map(r => (
+                        <tr key={r.table + r.policy}>
                           <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--port-t)' }}>{r.table}</td>
                           <td style={{ fontFamily: 'DM Mono, monospace', fontSize: 10 }}>{r.policy}</td>
                           <td><span className="rp viewer" style={{ fontSize: 7 }}>{r.role}</span></td>
