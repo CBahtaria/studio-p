@@ -207,16 +207,24 @@ export const bookingService = BookingService.getInstance();
 
 // ── Static data ─────────────────────────────────
 export const SERVICES = [
-  { code: '01', name: 'Signature Fade', desc: 'Precision skin fade, tailored to your face shape.', price: 'E120', duration: '45 min', tag: 'Signature' },
-  { code: '02', name: 'Taper & Define', desc: 'Timeless taper with surgical edges.', price: 'E100', duration: '40 min', tag: 'Classic' },
-  { code: '03', name: 'Beard Architecture', desc: 'Hot towel, sculpt, line-up.', price: 'E80', duration: '30 min', tag: 'Grooming' },
-  { code: '04', name: 'Full Package', desc: 'Cut + Beard + Skin ritual.', price: 'E220', duration: '90 min', tag: 'Premium' },
-  { code: '05', name: 'Youth Cut', desc: 'Clean cuts for the next generation.', price: 'E60', duration: '30 min', tag: 'Youth' },
+  { code: '01', name: 'Fade', desc: 'Precision skin fade.', price: 'E50', duration: '30 min', tag: 'Basic' },
+  { code: '02', name: 'Brush cut', desc: 'Clean brush cut with shape.', price: 'E40', duration: '35 min', tag: 'Classic' },
+  { code: '03', name: 'Chiskop', desc: 'Neat chiskop style.', price: 'E40', duration: '35 min', tag: 'Classic' },
+  { code: '04', name: 'Fiber+Fade', desc: 'Fiber texture with fade blend.', price: 'E60', duration: '45 min', tag: 'Premium' },
+  { code: '05', name: 'Brush+Fiber', desc: 'Brush cut with fiber finish.', price: 'E50', duration: '40 min', tag: 'Premium' },
+  { code: '06', name: 'Fiber', desc: 'Fiber texture styling.', price: 'E15', duration: '20 min', tag: 'Quick' },
+  { code: '07', name: 'Afro Fade+Black dye', desc: 'Afro fade with black dye application.', price: 'E100', duration: '60 min', tag: 'Premium' },
+  { code: '08', name: 'Skin fade+Black dye', desc: 'Skin fade with black dye.', price: 'E60', duration: '45 min', tag: 'Premium' },
+  { code: '09', name: 'Mid fade+Black dye', desc: 'Mid fade with black dye application.', price: 'E80', duration: '50 min', tag: 'Premium' },
+  { code: '10', name: 'Bleach only', desc: 'Hair bleach treatment.', price: 'E100', duration: '60 min', tag: 'Treatment' },
+  { code: '11', name: 'Bleach+Color', desc: 'Bleach with color application.', price: 'E180', duration: '90 min', tag: 'Premium' },
+  { code: '12', name: 'Ecurl', desc: 'Ecurl styling service.', price: 'E150', duration: '75 min', tag: 'Premium' },
+  { code: '13', name: 'Streaming', desc: 'Hair streaming treatment.', price: 'E15', duration: '20 min', tag: 'Quick' },
 ] as const;
 
 export const DEMO_BOOKINGS: Booking[] = [
-  { id: 'BK-A3F12', clientId: 'viewer-001', clientName: 'Lungelo M.',  service: 'Signature Fade',   barber: 'P. Dlamini',   date: 'Today',    time: '14:30', scheduledAt: '', status: 'confirmed', price: 'E120' },
-  { id: 'BK-B2E11', clientId: 'u-002',       clientName: 'Bongani N.', service: 'Taper & Define',   barber: 'S. Mkhonta',   date: 'Today',    time: '15:00', scheduledAt: '', status: 'pending',   price: 'E100' },
-  { id: 'BK-C1D10', clientId: 'u-003',       clientName: 'Thabo K.',   service: 'Full Package',     barber: 'P. Dlamini',   date: 'Today',    time: '16:00', scheduledAt: '', status: 'confirmed', price: 'E220' },
-  { id: 'BK-D0C09', clientId: 'u-004',       clientName: 'Musa S.',    service: 'Youth Cut',        barber: 'T. Nkosi',     date: 'Tomorrow', time: '09:00', scheduledAt: '', status: 'pending',   price: 'E60'  },
+  { id: 'BK-A3F12', clientId: 'viewer-001', clientName: 'Lungelo M.',  service: 'Fade',   barber: 'P. Dlamini',   date: 'Today',    time: '14:30', scheduledAt: '', status: 'confirmed', price: 'E50' },
+  { id: 'BK-B2E11', clientId: 'u-002',       clientName: 'Bongani N.', service: 'Brush cut',   barber: 'S. Mkhonta',   date: 'Today',    time: '15:00', scheduledAt: '', status: 'pending',   price: 'E40' },
+  { id: 'BK-C1D10', clientId: 'u-003',       clientName: 'Thabo K.',   service: 'Fiber+Fade',     barber: 'P. Dlamini',   date: 'Today',    time: '16:00', scheduledAt: '', status: 'confirmed', price: 'E60' },
+  { id: 'BK-D0C09', clientId: 'u-004',       clientName: 'Musa S.',    service: 'Fiber',        barber: 'T. Nkosi',     date: 'Tomorrow', time: '09:00', scheduledAt: '', status: 'pending',   price: 'E15'  },
 ];
