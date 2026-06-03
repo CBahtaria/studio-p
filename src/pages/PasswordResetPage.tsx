@@ -96,7 +96,7 @@ export function PasswordResetPage() {
         borderRadius: 16, width: '100%', maxWidth: 400, padding: 32,
       }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 24, fontWeight: 700, color: 'var(--brass)', marginBottom: 4 }}>
-          Fanu's Studio-P
+          Fano's Studio-P
         </div>
         <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.25em', color: 'var(--stone)', marginBottom: 28 }}>
           RESET PASSWORD

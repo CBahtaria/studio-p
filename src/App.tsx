@@ -81,7 +81,7 @@ function MacBar({ user, onSignIn, onSignOut }: { user: UserProfile | null; onSig
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>P</span>
-        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>Fanu's Studio-P</span>
+        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>Fano's Studio-P</span>
         {user && (
           <span style={{ fontSize: 8, color: roleColor[user.role] ?? 'var(--brass)', border: '1px solid', padding: '2px 6px', borderRadius: 3, letterSpacing: '.2em' }}>
             {user.role.toUpperCase()}

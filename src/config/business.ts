@@ -5,9 +5,9 @@
 
 export const BUSINESS = {
   name:        'Fano Barbershop',
-  tradingAs:   "Fanu's Studio-P",
+  tradingAs:   "Fano's Studio-P",
   owner:       'Mfanomuhle Tsabedze',
-  ownerAlias:  'Fanu',
+  ownerAlias:  'Fano',
   address:     'P.O.Box 1741 Mbabane',
   location:    'Kwaluseni, Manzini, Eswatini',
   established: '2020',

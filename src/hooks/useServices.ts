@@ -3,12 +3,19 @@ import { supabase } from '@/lib/supabase';
 import type { Service } from '@/types';
 
 const FALLBACK: Service[] = [
-  { id:'01', name:'Signature Fade',     description:'Precision skin fade, tailored to your face shape.', tag:'Signature', price:120, priceCents:12000, duration:45, active:true },
-  { id:'02', name:'Taper & Define',     description:'Timeless taper with surgical edges.',                 tag:'Classic',   price:100, priceCents:10000, duration:40, active:true },
-  { id:'03', name:'Beard Architecture', description:'Hot towel, sculpt, line-up.',                          tag:'Grooming',  price:80,  priceCents:8000,  duration:30, active:true },
-  { id:'04', name:'Full Package',       description:'Cut + Beard + Skin ritual.',                           tag:'Premium',   price:220, priceCents:22000, duration:90, active:true },
-  { id:'05', name:'Youth Cut',          description:'Clean cuts for the next generation.',                  tag:'Youth',     price:60,  priceCents:6000,  duration:30, active:true },
-  { id:'06', name:'Edge & Line-Up',     description:'Sharp lines, no compromises.',                         tag:'Quick',     price:60,  priceCents:6000,  duration:20, active:true },
+  { id:'01', name:'Fade',                 description:'Precision skin fade.',                    tag:'Basic',     price:50,  priceCents:5000,  duration:30, active:true },
+  { id:'02', name:'Brush cut',            description:'Clean brush cut with shape.',              tag:'Classic',   price:40,  priceCents:4000,  duration:35, active:true },
+  { id:'03', name:'Chiskop',              description:'Neat chiskop style.',                      tag:'Classic',   price:40,  priceCents:4000,  duration:35, active:true },
+  { id:'04', name:'Fiber+Fade',           description:'Fiber texture with fade blend.',           tag:'Premium',   price:60,  priceCents:6000,  duration:45, active:true },
+  { id:'05', name:'Brush+Fiber',          description:'Brush cut with fiber finish.',             tag:'Premium',   price:50,  priceCents:5000,  duration:40, active:true },
+  { id:'06', name:'Fiber',               description:'Fiber texture styling.',                   tag:'Quick',     price:15,  priceCents:1500,  duration:20, active:true },
+  { id:'07', name:'Afro Fade+Black dye', description:'Afro fade with black dye application.',   tag:'Premium',   price:100, priceCents:10000, duration:60, active:true },
+  { id:'08', name:'Skin fade+Black dye', description:'Skin fade with black dye.',               tag:'Premium',   price:60,  priceCents:6000,  duration:45, active:true },
+  { id:'09', name:'Mid fade+Black dye',  description:'Mid fade with black dye application.',    tag:'Premium',   price:80,  priceCents:8000,  duration:50, active:true },
+  { id:'10', name:'Bleach only',         description:'Hair bleach treatment.',                   tag:'Treatment', price:100, priceCents:10000, duration:60, active:true },
+  { id:'11', name:'Bleach+Color',        description:'Bleach with color application.',           tag:'Premium',   price:180, priceCents:18000, duration:90, active:true },
+  { id:'12', name:'Ecurl',              description:'Ecurl styling service.',                   tag:'Premium',   price:150, priceCents:15000, duration:75, active:true },
+  { id:'13', name:'Streaming',           description:'Hair streaming treatment.',                tag:'Quick',     price:15,  priceCents:1500,  duration:20, active:true },
 ];
 
 export function useServices(includeInactive = false) {
