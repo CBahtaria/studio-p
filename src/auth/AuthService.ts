@@ -82,10 +82,11 @@ class AuthService {
     if (!data.user) throw new Error('Sign-in failed');
 
     if (!data.user.email_confirmed_at) {
+      const userName = typeof data.user.user_metadata?.name === 'string' ? data.user.user_metadata.name : email.split('@')[0];
       return {
         profile: {
           id: data.user.id,
-          name: (data.user.user_metadata.name as string) ?? email.split('@')[0],
+          name: userName,
           email,
           role: 'viewer',
           provider: 'email',
@@ -190,13 +191,26 @@ class AuthService {
           // from the session so they always reach the dashboard.
           const u = session.user;
           const email = u.email ?? '';
+          
+          const nameFromMetadata = 
+            (typeof u.user_metadata?.full_name === 'string' ? u.user_metadata.full_name : undefined) ||
+            (typeof u.user_metadata?.name === 'string' ? u.user_metadata.name : undefined);
+
+          const avatarUrl = typeof u.user_metadata?.avatar_url === 'string' ? u.user_metadata.avatar_url : undefined;
+
+          const providerFromMetadata: UserProfile['provider'] = 
+            (typeof u.app_metadata?.provider === 'string' &&
+             ['email', 'google', 'apple', 'demo'].includes(u.app_metadata.provider))
+              ? u.app_metadata.provider as UserProfile['provider'] // Safe after check
+              : 'email';
+
           const fallback: UserProfile = {
             id: u.id,
-            name: (u.user_metadata?.full_name as string) || (u.user_metadata?.name as string) || email.split('@')[0] || 'Member',
+            name: nameFromMetadata || email.split('@')[0] || 'Member',
             email,
-            avatar: (u.user_metadata?.avatar_url as string) ?? undefined,
-            role: 'viewer',
-            provider: (u.app_metadata?.provider as UserProfile['provider']) ?? 'email',
+            avatar: avatarUrl,
+            role: (u.app_metadata?.provider === 'editor' ? 'editor' : 'viewer'),
+            provider: providerFromMetadata,
             memberTier: 'bronze',
             visitCount: 0,
             uploadCount: 0,
@@ -232,45 +246,74 @@ class AuthService {
 
     // No profile row — use pre-resolved user when available (avoids calling
     // getUser() inside an onAuthStateChange callback which would deadlock).
-    const user = authUser ?? (await supabase.auth.getUser()).data.user;
-    const meta = user?.user_metadata ?? {};
-    const name = (
-      (meta.full_name as string) ||
-      (meta.name as string) ||
-      user?.email?.split('@')[0] ||
-      'Member'
-    ).slice(0, 60) || 'Member';
+    let user: SupabaseUser | null = authUser ?? null;
+    if (!user) {
+      try {
+        const { data: { user: fetchedUser }, error: getUserError } = await supabase.auth.getUser();
+        if (getUserError) {
+          logger.error('AuthService', 'supabase.auth.getUser failed in fetchProfile', { error: getUserError.message });
+          throw getUserError; // Re-throw to be caught by caller
+        }
+        user = fetchedUser;
+      } catch (e) {
+        logger.error('AuthService', 'Error fetching user in fetchProfile fallback', { error: String(e) });
+        throw new Error('Failed to fetch user in fallback'); // Ensure a consistent error for the caller
+      }
+    }
 
-    const email = user?.email ?? '';
+    if (!user) {
+      throw new Error('User not found in fetchProfile'); // Should not happen if authUser is provided or getUser succeeds
+    }
+
+    const meta = user.user_metadata ?? {};
+    const nameFromMeta = 
+      (typeof meta.full_name === 'string' ? meta.full_name : undefined) ||
+      (typeof meta.name === 'string' ? meta.name : undefined);
+    const name = (nameFromMeta || user.email?.split('@')[0] || 'Member').slice(0, 60) || 'Member';
+
+    const email = user.email ?? '';
 
     // Only allow viewer or editor from metadata; admin must be set via admin panel.
     const metaRole: UserProfile['role'] = (meta.role === 'editor') ? 'editor' : 'viewer';
+
+    const avatarUrl = typeof meta.avatar_url === 'string' ? meta.avatar_url : undefined;
+
+    const providerFromAppMetadata: UserProfile['provider'] = 
+      (typeof user.app_metadata?.provider === 'string' &&
+       ['email', 'google', 'apple', 'demo'].includes(user.app_metadata.provider))
+        ? user.app_metadata.provider as UserProfile['provider'] // Safe after check
+        : 'email';
 
     const fallback: UserProfile = {
       id: userId,
       name,
       email,
-      avatar: (meta.avatar_url as string) ?? undefined,
+      avatar: avatarUrl,
       role: metaRole,
-      provider: (user?.app_metadata?.provider as UserProfile['provider']) ?? 'email',
+      provider: providerFromAppMetadata,
       memberTier: 'bronze',
       visitCount: 0,
       uploadCount: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      emailVerified: !!user?.email_confirmed_at,
+      emailVerified: !!user.email_confirmed_at,
     };
 
     // Persist to DB — ignore error if it already exists (race condition)
-    await supabase.from('profiles').upsert({
-      id: userId,
-      name: fallback.name,
-      email: fallback.email,
-      avatar: fallback.avatar ?? null,
-      provider: fallback.provider,
-      role: metaRole,
-      member_tier: 'bronze',
-    }, { onConflict: 'id', ignoreDuplicates: true });
+    try {
+      await supabase.from('profiles').upsert({
+        id: userId,
+        name: fallback.name,
+        email: fallback.email,
+        avatar: fallback.avatar ?? null,
+        provider: fallback.provider,
+        role: metaRole,
+        member_tier: 'bronze',
+      }, { onConflict: 'id', ignoreDuplicates: true });
+    } catch (e) {
+      logger.warn('AuthService', 'Failed to upsert profile in fetchProfile fallback', { error: String(e) });
+      // Do not re-throw, continue to return the fallback profile.
+    }
 
     return fallback;
   }
