@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { UserProfile, UserPreferences, Booking } from '@/types';
+import type { UserProfile, UserPreferences, Booking, AuthProvider } from '@/types';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -48,6 +48,12 @@ export interface BookingRow {
 }
 
 export function rowToProfile(row: ProfileRow): UserProfile {
+  const validProviders: AuthProvider[] = ['email', 'google', 'apple', 'demo'];
+  const validatedProvider: AuthProvider = 
+    (typeof row.provider === 'string' && validProviders.includes(row.provider as AuthProvider))
+      ? row.provider as AuthProvider
+      : 'email'; // Default to 'email' if it's not one of the known types
+
   return {
     id: row.id,
     name: row.name,
@@ -55,7 +61,7 @@ export function rowToProfile(row: ProfileRow): UserProfile {
     avatar: row.avatar ?? undefined,
     phone: row.phone ?? undefined,
     role: row.role,
-    provider: row.provider as UserProfile['provider'],
+    provider: validatedProvider,
     memberTier: row.member_tier,
     visitCount: row.visit_count,
     uploadCount: row.upload_count,
