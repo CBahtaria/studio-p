@@ -1,8 +1,3 @@
-// ════════════════════════════════════════════════
-// STUDIO P — AuthModal (Supabase-backed)
-// Tabs: Sign In | Sign Up | Demo (dev only)
-// ════════════════════════════════════════════════
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -202,7 +197,8 @@ function SignInForm({ onSuccess, onForgotPassword, onVerified, selectedRole, onR
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           padding: '12px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 11,
           cursor: oauthLoading ? 'not-allowed' : 'pointer', opacity: oauthLoading && oauthLoading !== 'google' ? 0.5 : 1,
-        }}>
+        }}
+        aria-label={oauthLoading === 'google' ? 'Redirecting to Google' : 'Continue with Google'}>
         {oauthLoading === 'google' ? 'Redirecting…' : (
           <>
             <svg width="18" height="18" viewBox="0 0 48 48">
@@ -229,7 +225,8 @@ function SignInForm({ onSuccess, onForgotPassword, onVerified, selectedRole, onR
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           padding: '12px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 11,
           cursor: oauthLoading ? 'not-allowed' : 'pointer', opacity: oauthLoading && oauthLoading !== 'apple' ? 0.5 : 1,
-        }}>
+        }}
+        aria-label={oauthLoading === 'apple' ? 'Redirecting to Apple' : 'Continue with Apple'}>
         {oauthLoading === 'apple' ? 'Redirecting…' : (
           <>
             <svg width="17" height="20" viewBox="0 0 814 1000" fill="currentColor">
@@ -450,7 +447,7 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
               <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 24, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>Fanu's Studio-P</div>
               <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.25em', color: 'var(--stone)', marginTop: 3 }}>MATSAPHA · ESWATINI</div>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--bord2)', color: 'var(--stone)', width: 32, height: 32, minHeight: 'unset', borderRadius: 8, fontSize: 14, cursor: 'pointer' }}>✕</button>
+            <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: '1px solid var(--bord2)', color: 'var(--stone)', width: 32, height: 32, minHeight: 'unset', borderRadius: 8, fontSize: 14, cursor: 'pointer' }}>✕</button>
           </div>
 
           {step === 'form' && (
@@ -538,7 +535,7 @@ export function AuthModal({ onSuccess, onClose, initialError }: AuthModalProps) 
               }}>
                 {resetLoading ? 'Sending…' : 'Send Reset Email →'}
               </button>
-              <button onClick={() => { setStep('form'); setResetError(''); }} style={{ background: 'none', border: 'none', color: 'var(--stone)', fontSize: 11, cursor: 'pointer', minHeight: 'unset' }}>
+              <button onClick={() => { setStep('form'); setResetEmail(''); setResetError(''); }} style={{ background: 'none', border: 'none', color: 'var(--stone)', fontSize: 11, cursor: 'pointer', minHeight: 'unset' }}>
                 ← Back to Sign In
               </button>
             </div>
