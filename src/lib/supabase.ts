@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { UserProfile, UserPreferences, Booking, AuthProvider } from '@/types';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const url = import.meta.env.VITE_SUPABASE_URL;
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!url || !key) {
-  throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set');
+if (typeof url !== 'string' || !url || typeof key !== 'string' || !key) {
+  throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set as string environment variables');
 }
 
 export const supabase = createClient(url, key, {
