@@ -51,11 +51,12 @@ jobs:
           echo "$TSC_OUT" || true
 
       - name: Run self-improvement agent
+        continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TSC_BASELINE: ${{ steps.typecheck.outputs.TSC_OUTPUT }}
         run: node scripts/self-improve.mjs
-        timeout-minutes: 15
+        timeout-minutes: 25
 
       - name: Check for changes
         id: diff
