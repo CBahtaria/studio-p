@@ -108,6 +108,9 @@ jobs:
           npx vercel pull --yes \
             --environment=production \
             --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel env pull .env.production.local \
+            --yes --environment=production \
+            --token=${{ secrets.VERCEL_TOKEN }}
           npx vercel build --prod \
             --token=${{ secrets.VERCEL_TOKEN }}
           npx vercel deploy --prebuilt --prod \
