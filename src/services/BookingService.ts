@@ -39,11 +39,12 @@ function orchestratorCheck(results: Agent[]): Array<{ agentId: string; reason: s
   const issues: Array<{ agentId: string; reason: string; hint: string }> = [];
   for (const r of results) {
     if (r.status === 'err') issues.push({ agentId: r.id, reason: 'agent_error', hint: r.error ?? '' });
-    if (r.id === 'state' && !(r.output as Record<string,unknown>)?.complete)
+    // Using optional chaining and nullish coalescing for safer access
+    if (r.id === 'state' && !(r.output?.complete))
       issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
-    if (r.id === 'security' && !(r.output as Record<string,unknown>)?.passed)
+    if (r.id === 'security' && !(r.output?.passed))
       issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
-    if (r.id === 'rls' && !(r.output as Record<string,unknown>)?.allPassed)
+    if (r.id === 'rls' && !(r.output?.allPassed))
       issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
   }
   return issues;
@@ -82,8 +83,8 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
-        const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const SQLI = /('|--|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const EMAIL = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
         const sqlClean   = !fields.some(v => SQLI.test(v ?? ''));
@@ -172,11 +173,23 @@ export class BookingService {
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
-    const bookingId = dbRecord?.record?.id ?? '';
+    // Safely access properties with optional chaining and provide defaults
+    const bookingId = typeof dbR.output === 'object' && dbR.output !== null &&
+                      'record' in dbR.output && typeof dbR.output.record === 'object' && dbR.output.record !== null &&
+                      'id' in dbR.output.record && typeof dbR.output.record.id === 'string'
+                      ? dbR.output.record.id
+                      : '';
+
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
-    const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+    
+    // Safely access properties of synthR.output with optional chaining and provide defaults
+    const synthOut = {
+      allOk: (synthR.output as Record<string, unknown>)?.allOk === true,
+      confidence: typeof (synthR.output as Record<string, unknown>)?.confidence === 'number' ? (synthR.output as Record<string, unknown>).confidence as number : 0,
+      rounds: typeof (synthR.output as Record<string, unknown>)?.rounds === 'number' ? (synthR.output as Record<string, unknown>).rounds as number : 0,
+      issuesFixed: typeof (synthR.output as Record<string, unknown>)?.issuesFixed === 'number' ? (synthR.output as Record<string, unknown>).issuesFixed as number : 0,
+    };
 
     monitor.markEnd('booking.validation');
     done();

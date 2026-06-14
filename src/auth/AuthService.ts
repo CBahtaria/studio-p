@@ -64,7 +64,7 @@ class AuthService {
       };
     }
 
-    const profile = await this.fetchProfile(authData.user.id);
+    const profile = await this.fetchProfile(authData.user.id, authData.user);
     this.currentProfile = profile;
     return { profile };
   }
@@ -101,7 +101,7 @@ class AuthService {
       };
     }
 
-    const profile = await this.fetchProfile(data.user.id);
+    const profile = await this.fetchProfile(data.user.id, data.user);
     this.currentProfile = profile;
     logger.info('AuthService', 'Sign-in complete', { id: profile.id, role: profile.role });
     return { profile };
@@ -141,10 +141,10 @@ class AuthService {
       throw new Error('Demo mode is disabled in this environment');
     }
     const DEMO: Record<UserRole, UserProfile> = {
-      admin:  { id: 'demo-admin',  name: 'Studio P Admin', email: 'admin@studiop.sz',  role: 'admin',  provider: 'demo', memberTier: 'platinum', visitCount: 150, uploadCount: 0,  createdAt: 0, updatedAt: 0 },
-      editor: { id: 'demo-editor', name: 'P. Dlamini',     email: 'editor@studiop.sz', role: 'editor', provider: 'demo', memberTier: 'gold',     visitCount: 89,  uploadCount: 12, createdAt: 0, updatedAt: 0 },
-      viewer: { id: 'demo-viewer', name: 'Sipho Dlamini',  email: 'sipho@example.com', role: 'viewer', provider: 'demo', memberTier: 'silver',   visitCount: 7,   uploadCount: 2,  createdAt: 0, updatedAt: 0 },
-      guest:  { id: 'demo-guest',  name: 'Guest',          email: '',                  role: 'guest',  provider: 'demo', memberTier: 'bronze',   visitCount: 0,   uploadCount: 0,  createdAt: 0, updatedAt: 0 },
+      admin:  { id: 'demo-admin',  name: 'Studio P Admin', email: 'admin@studiop.sz',  role: 'admin',  provider: 'demo', memberTier: 'platinum', visitCount: 150, uploadCount: 0,  createdAt: 0, updatedAt: 0, emailVerified: true },
+      editor: { id: 'demo-editor', name: 'P. Dlamini',     email: 'editor@studiop.sz', role: 'editor', provider: 'demo', memberTier: 'gold',     visitCount: 89,  uploadCount: 12, createdAt: 0, updatedAt: 0, emailVerified: true },
+      viewer: { id: 'demo-viewer', name: 'Sipho Dlamini',  email: 'sipho@example.com', role: 'viewer', provider: 'demo', memberTier: 'silver',   visitCount: 7,   uploadCount: 2,  createdAt: 0, updatedAt: 0, emailVerified: true },
+      guest:  { id: 'demo-guest',  name: 'Guest',          email: '',                  role: 'guest',  provider: 'demo', memberTier: 'bronze',   visitCount: 0,   uploadCount: 0,  createdAt: 0, updatedAt: 0, emailVerified: true },
     };
     this.currentProfile = DEMO[role];
     logger.warn('AuthService', '⚠️ Demo sign-in — not for production', { role });
@@ -230,22 +230,6 @@ class AuthService {
   }
 
   private async fetchProfile(userId: string, authUser?: SupabaseUser): Promise<UserProfile> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!error && data) {
-      try {
-        const p = rowToProfile(data as ProfileRow);
-        return p;
-      } catch { /* fall through to rebuild */ }
-    }
-    if (error) logger.warn('AuthService', 'profiles SELECT failed', { error: error.message });
-
-    // No profile row — use pre-resolved user when available (avoids calling
-    // getUser() inside an onAuthStateChange callback which would deadlock).
     let user: SupabaseUser | null = authUser ?? null;
     if (!user) {
       try {
@@ -264,6 +248,20 @@ class AuthService {
     if (!user) {
       throw new Error('User not found in fetchProfile'); // Should not happen if authUser is provided or getUser succeeds
     }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!error && data) {
+      try {
+        const p = rowToProfile(data as ProfileRow);
+        return { ...p, emailVerified: !!user.email_confirmed_at };
+      } catch { /* fall through to rebuild */ }
+    }
+    if (error) logger.warn('AuthService', 'profiles SELECT failed', { error: error.message });
 
     const meta = user.user_metadata ?? {};
     const nameFromMeta = 

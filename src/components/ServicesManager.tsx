@@ -51,9 +51,15 @@ export function ServicesManager() {
       price_swl:        Math.round(data.price * 100),
       duration_minutes: data.duration_minutes,
     };
+
+    if (mode === 'edit' && !editing) {
+      setDbError('No service selected for editing. Please try again.');
+      return;
+    }
+
     const { error } = mode === 'add'
       ? await supabase.from('services').insert({ ...payload, active: true })
-      : await supabase.from('services').update(payload).eq('id', editing!.id);
+      : await supabase.from('services').update(payload).eq('id', editing!.id); // editing is guaranteed non-null here
 
     if (error) { setDbError(error.message); return; }
     await reload();
@@ -169,7 +175,8 @@ export function ServicesManager() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.05rem', fontWeight: 600, color: 'var(--port-t)' }}>{s.name}</span>
-              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, letterSpacing: '.15em', color: 'var(--brass)', textTransform: 'uppercase' }}>{s.tag}</span>
+              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, letterSpacing: '.15em', color: 'var(--brass)
+', textTransform: 'uppercase' }}>{s.tag}</span>
               {!s.active && (
                 <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, color: 'var(--stone)', border: '1px solid var(--port-bord)', borderRadius: 3, padding: '1px 5px', textTransform: 'uppercase' }}>inactive</span>
               )}

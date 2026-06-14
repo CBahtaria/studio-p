@@ -68,7 +68,6 @@ export function rowToProfile(row: ProfileRow): UserProfile {
     preferences: row.preferences ?? undefined,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
-    emailVerified: true,
   };
 }
 
