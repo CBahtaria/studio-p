@@ -4,11 +4,12 @@ import type { UserProfile, UserPreferences, Booking, AuthProvider } from '@/type
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-if (!url || !key) {
-  throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set');
-}
+export const supabaseConfigured = !!(url && key);
 
-export const supabase = createClient(url, key, {
+export const supabase = createClient(
+  url || 'https://placeholder.supabase.co',
+  key || 'placeholder-key',
+  {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
