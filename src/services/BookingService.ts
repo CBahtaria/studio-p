@@ -35,16 +35,56 @@ async function runAgent(
 }
 
 // ── Orchestrator check ────────────────────────────
+interface StateAgentOutput { complete?: boolean; }
+interface SecurityAgentOutput { passed?: boolean; }
+interface RlsAgentOutput { allPassed?: boolean; }
+interface DbAgentOutput { record?: { id: string }; }
+interface SynthAgentOutput {
+  allOk: boolean;
+  confidence: number;
+  rounds: number;
+  issuesFixed: number;
+}
+
+function isStateAgentOutput(output: Record<string, unknown> | undefined): output is StateAgentOutput {
+  return !!(output && typeof output === 'object' && 'complete' in output);
+}
+function isSecurityAgentOutput(output: Record<string, unknown> | undefined): output is SecurityAgentOutput {
+  return !!(output && typeof output === 'object' && 'passed' in output);
+}
+function isRlsAgentOutput(output: Record<string, unknown> | undefined): output is RlsAgentOutput {
+  return !!(output && typeof output === 'object' && 'allPassed' in output);
+}
+function isDbAgentOutput(output: Record<string, unknown> | undefined): output is DbAgentOutput {
+  return !!(output && typeof output === 'object' && 'record' in output);
+}
+function isSynthAgentOutput(output: Record<string, unknown> | undefined): output is SynthAgentOutput {
+  return !!(
+    output && typeof output === 'object' &&
+    'allOk' in output && typeof (output as { allOk: unknown }).allOk === 'boolean' &&
+    'confidence' in output && typeof (output as { confidence: unknown }).confidence === 'number' &&
+    'rounds' in output && typeof (output as { rounds: unknown }).rounds === 'number' &&
+    'issuesFixed' in output && typeof (output as { issuesFixed: unknown }).issuesFixed === 'number'
+  );
+}
+
 function orchestratorCheck(results: Agent[]): Array<{ agentId: string; reason: string; hint: string }> {
   const issues: Array<{ agentId: string; reason: string; hint: string }> = [];
   for (const r of results) {
     if (r.status === 'err') issues.push({ agentId: r.id, reason: 'agent_error', hint: r.error ?? '' });
-    if (r.id === 'state' && !(r.output as Record<string,unknown>)?.complete)
-      issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
-    if (r.id === 'security' && !(r.output as Record<string,unknown>)?.passed)
-      issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
-    if (r.id === 'rls' && !(r.output as Record<string,unknown>)?.allPassed)
-      issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
+
+    if (r.id === 'state') {
+      if (!isStateAgentOutput(r.output) || !r.output.complete)
+        issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
+    }
+    if (r.id === 'security') {
+      if (!isSecurityAgentOutput(r.output) || !r.output.passed)
+        issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
+    }
+    if (r.id === 'rls') {
+      if (!isRlsAgentOutput(r.output) || !r.output.allPassed)
+        issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
+    }
   }
   return issues;
 }
@@ -82,7 +122,7 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const SQLI = /(\'|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
         const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
@@ -172,11 +212,11 @@ export class BookingService {
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
+    const dbRecord = isDbAgentOutput(dbR.output) ? dbR.output : undefined;
     const bookingId = dbRecord?.record?.id ?? '';
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
-    const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+    const synthOut = isSynthAgentOutput(synthR.output) ? synthR.output : { allOk: false, confidence: 0, rounds: 0, issuesFixed: 0 };
 
     monitor.markEnd('booking.validation');
     done();
