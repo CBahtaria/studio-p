@@ -47,27 +47,47 @@ export interface BookingRow {
   updated_at: string;
 }
 
-export function rowToProfile(row: ProfileRow): UserProfile {
+export function rowToProfile(row: Record<string, unknown>): UserProfile {
+  // Basic runtime validation for critical properties
+  if (
+    typeof row.id !== 'string' ||
+    typeof row.name !== 'string' ||
+    typeof row.email !== 'string' ||
+    typeof row.role !== 'string' ||
+    typeof row.provider !== 'string' ||
+    typeof row.member_tier !== 'string' ||
+    typeof row.visit_count !== 'number' ||
+    typeof row.upload_count !== 'number' ||
+    typeof row.created_at !== 'string' ||
+    typeof row.updated_at !== 'string'
+  ) {
+    throw new Error('Invalid ProfileRow structure received from database.');
+  }
+
+  // Now we can safely cast 'row' to 'ProfileRow' for easier access,
+  // knowing basic types are correct. This 'as ProfileRow' is now conditionally safe.
+  const typedRow = row as ProfileRow;
+
   const validProviders: AuthProvider[] = ['email', 'google', 'apple', 'demo'];
   const validatedProvider: AuthProvider = 
-    (typeof row.provider === 'string' && validProviders.includes(row.provider as AuthProvider))
-      ? row.provider as AuthProvider
+    (validProviders.includes(typedRow.provider as AuthProvider))
+      ? typedRow.provider as AuthProvider
       : 'email'; // Default to 'email' if it's not one of the known types
 
   return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    avatar: row.avatar ?? undefined,
-    phone: row.phone ?? undefined,
-    role: row.role,
+    id: typedRow.id,
+    name: typedRow.name,
+    email: typedRow.email,
+    avatar: typedRow.avatar ?? undefined,
+    phone: typedRow.phone ?? undefined,
+    role: typedRow.role,
     provider: validatedProvider,
-    memberTier: row.member_tier,
-    visitCount: row.visit_count,
-    uploadCount: row.upload_count,
-    preferences: row.preferences ?? undefined,
-    createdAt: new Date(row.created_at).getTime(),
-    updatedAt: new Date(row.updated_at).getTime(),
+    memberTier: typedRow.member_tier,
+    visitCount: typedRow.visit_count,
+    uploadCount: typedRow.upload_count,
+    preferences: typedRow.preferences ?? undefined,
+    createdAt: new Date(typedRow.created_at).getTime(),
+    updatedAt: new Date(typedRow.updated_at).getTime(),
     emailVerified: true,
   };
 }
