@@ -1,8 +1,3 @@
-// ════════════════════════════════════════════════
-// STUDIO P — BookingService (services/BookingService.ts)
-// Parallel agent orchestration for booking validation
-// ════════════════════════════════════════════════
-
 import type { Booking, Agent, OrchestrationResult, AgentStatus } from '@/types';
 import { logger } from '@/core/logger';
 import { monitor } from '@/core/monitor';
@@ -82,8 +77,8 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
-        const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const SQLI = /('|--|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
         const sqlClean   = !fields.some(v => SQLI.test(v ?? ''));
@@ -172,8 +167,8 @@ export class BookingService {
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
-    const bookingId = dbRecord?.record?.id ?? '';
+    const dbOutputSuccess = dbR.status === 'ok' ? dbR.output : undefined;
+    const bookingId = (dbOutputSuccess as { record: { id: string } } | undefined)?.record?.id ?? '';
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
     const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
