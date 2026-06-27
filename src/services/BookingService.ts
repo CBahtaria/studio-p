@@ -39,11 +39,14 @@ function orchestratorCheck(results: Agent[]): Array<{ agentId: string; reason: s
   const issues: Array<{ agentId: string; reason: string; hint: string }> = [];
   for (const r of results) {
     if (r.status === 'err') issues.push({ agentId: r.id, reason: 'agent_error', hint: r.error ?? '' });
-    if (r.id === 'state' && !(r.output as Record<string,unknown>)?.complete)
+
+    const output = r.output; // Local variable for cleaner checks
+
+    if (r.id === 'state' && !(typeof output === 'object' && output !== null && typeof (output as any).complete === 'boolean' && (output as any).complete))
       issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
-    if (r.id === 'security' && !(r.output as Record<string,unknown>)?.passed)
+    if (r.id === 'security' && !(typeof output === 'object' && output !== null && typeof (output as any).passed === 'boolean' && (output as any).passed))
       issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
-    if (r.id === 'rls' && !(r.output as Record<string,unknown>)?.allPassed)
+    if (r.id === 'rls' && !(typeof output === 'object' && output !== null && typeof (output as any).allPassed === 'boolean' && (output as any).allPassed))
       issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
   }
   return issues;
@@ -82,7 +85,7 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const SQLI = /(\'|--|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
         const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
@@ -99,38 +102,57 @@ export class BookingService {
         };
       }),
       runAgent('database', 'DB Formatter', '🗃️', 0, async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Not authenticated');
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-booking`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              service: data.service, date: data.date, time: data.time,
-              clientId: data.clientId, email: data.email, phone: data.phone,
-            }),
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw new Error(sessionError.message);
+          if (!session) throw new Error('Not authenticated');
+          
+          const resp = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-booking`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                service: data.service, date: data.date, time: data.time,
+                clientId: data.clientId, email: data.email, phone: data.phone,
+              }),
+            }
+          );
+          // Check for network errors/unparseable JSON
+          if (!resp.ok) {
+            const errorBody = await resp.text(); // Read as text to avoid JSON parsing errors
+            throw new Error(`API error: ${resp.status} ${resp.statusText} - ${errorBody}`);
           }
-        );
-        const json = await resp.json();
-        if (!resp.ok || !json.approved) throw new Error(json.reason ?? 'Booking rejected');
-        return { table: 'bookings', record: { id: json.bookingId }, scheduledAt: json.scheduledAt };
+          const json = await resp.json();
+          if (!json.approved) throw new Error(json.reason ?? 'Booking rejected by API');
+          return { table: 'bookings', record: { id: json.bookingId }, scheduledAt: json.scheduledAt };
+        } catch (e) {
+          logger.error('BookingService', 'Database agent workFn failed', { error: String(e) });
+          throw new Error(e instanceof Error ? e.message : 'Unknown error in database agent');
+        }
       }),
       runAgent('rls', 'RLS Validator', '🛡️', 290, async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        const authenticated = !!session?.user;
-        const uidMatch      = session?.user?.id === data.clientId;
-        const allPassed     = authenticated && uidMatch;
-        return {
-          allPassed,
-          authenticated,
-          uidMatch,
-          serviceKeyExposed: false,
-          policiesChecked: ['auth_insert', 'client_id_rls', 'anon_read'],
-        };
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw new Error(sessionError.message);
+
+          const authenticated = !!session?.user;
+          const uidMatch      = session?.user?.id === data.clientId;
+          const allPassed     = authenticated && uidMatch;
+          return {
+            allPassed,
+            authenticated,
+            uidMatch,
+            serviceKeyExposed: false,
+            policiesChecked: ['auth_insert', 'client_id_rls', 'anon_read'],
+          };
+        } catch (e) {
+          logger.error('BookingService', 'RLS agent workFn failed', { error: String(e) });
+          throw new Error(e instanceof Error ? e.message : 'Unknown error in RLS agent');
+        }
       }),
     ]);
 
@@ -171,12 +193,20 @@ export class BookingService {
     onTick?.({ phase: 'complete', agents: allAgents });
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
+    
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
-    const bookingId = dbRecord?.record?.id ?? '';
+    const dbOutput = dbR.output; // Use local variable for clearer checks
+    const bookingId = (typeof dbOutput === 'object' && dbOutput !== null && 'record' in dbOutput && typeof (dbOutput as any).record === 'object' && (dbOutput as any).record !== null && 'id' in (dbOutput as any).record && typeof (dbOutput as any).record.id === 'string')
+      ? (dbOutput as any).record.id
+      : '';
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
-    const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+
+    const synthOutput = synthR.output; // Use local variable for clearer checks
+    const synthAllOk = (typeof synthOutput === 'object' && synthOutput !== null && typeof (synthOutput as any).allOk === 'boolean') ? (synthOutput as any).allOk : false;
+    const synthConfidence = (typeof synthOutput === 'object' && synthOutput !== null && typeof (synthOutput as any).confidence === 'number') ? (synthOutput as any).confidence : 0;
+    const synthRounds = (typeof synthOutput === 'object' && synthOutput !== null && typeof (synthOutput as any).rounds === 'number') ? (synthOutput as any).rounds : (issues.length ? 2 : 1);
+    const synthIssuesFixed = (typeof synthOutput === 'object' && synthOutput !== null && typeof (synthOutput as any).issuesFixed === 'number') ? (synthOutput as any).issuesFixed : 0;
 
     monitor.markEnd('booking.validation');
     done();
@@ -184,11 +214,11 @@ export class BookingService {
     const result: OrchestrationResult = {
       bookingId,
       approved: dbApproved,
-      confidence: dbApproved ? synthOut.confidence : 0,
+      confidence: dbApproved ? synthConfidence : 0,
       parallelMs,
-      rounds: synthOut.rounds,
+      rounds: synthRounds,
       agents: allAgents,
-      issuesFixed: synthOut.issuesFixed,
+      issuesFixed: synthIssuesFixed,
       reason: rejectionReason,
     };
 
