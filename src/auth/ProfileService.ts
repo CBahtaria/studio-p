@@ -88,7 +88,11 @@ export class ProfileService {
 
     const canvas = document.createElement('canvas');
     canvas.width = 80; canvas.height = 80;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d'); // Removed non-null assertion
+    if (!ctx) {
+      logger.error('ProfileService', 'Failed to get 2D rendering context for canvas.');
+      return ''; // Or throw an error, depending on desired fallback behavior
+    }
     ctx.fillStyle = '#B8966A';
     ctx.fillRect(0, 0, 80, 80);
     ctx.fillStyle = '#070604';

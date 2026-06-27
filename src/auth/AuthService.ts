@@ -14,6 +14,26 @@ export interface AuthResult {
   needsVerification?: boolean;
 }
 
+// Type guard for ProfileRow
+function isProfileRow(obj: any): obj is ProfileRow {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.id === 'string' &&
+    typeof obj.name === 'string' &&
+    typeof obj.email === 'string' &&
+    typeof obj.role === 'string' &&
+    ['admin', 'editor', 'viewer', 'guest'].includes(obj.role) &&
+    typeof obj.provider === 'string' &&
+    typeof obj.member_tier === 'string' &&
+    ['bronze', 'silver', 'gold', 'platinum'].includes(obj.member_tier) &&
+    typeof obj.visit_count === 'number' &&
+    typeof obj.upload_count === 'number' &&
+    typeof obj.created_at === 'string' &&
+    typeof obj.updated_at === 'string'
+  );
+}
+
 class AuthService {
   private static instance: AuthService;
   private currentProfile: UserProfile | null = null;
@@ -114,25 +134,37 @@ class AuthService {
 
   async signInWithGoogle(): Promise<void> {
     sessionStorage.setItem('oauth_pending', '1');
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: this.callbackUrl, scopes: 'openid email profile' },
-    });
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: this.callbackUrl, scopes: 'openid email profile' },
+      });
+      if (error) {
+        sessionStorage.removeItem('oauth_pending');
+        throw new Error(error.message);
+      }
+    } catch (e) {
       sessionStorage.removeItem('oauth_pending');
-      throw new Error(error.message);
+      logger.error('AuthService', 'signInWithGoogle failed', { error: String(e) });
+      throw new Error(e instanceof Error ? e.message : 'Unknown error during Google sign-in');
     }
   }
 
   async signInWithApple(): Promise<void> {
     sessionStorage.setItem('oauth_pending', '1');
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: this.callbackUrl },
-    });
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: this.callbackUrl },
+      });
+      if (error) {
+        sessionStorage.removeItem('oauth_pending');
+        throw new Error(error.message);
+      }
+    } catch (e) {
       sessionStorage.removeItem('oauth_pending');
-      throw new Error(error.message);
+      logger.error('AuthService', 'signInWithApple failed', { error: String(e) });
+      throw new Error(e instanceof Error ? e.message : 'Unknown error during Apple sign-in');
     }
   }
 
@@ -152,28 +184,50 @@ class AuthService {
   }
 
   async resendVerification(email: string): Promise<void> {
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
-    if (error) throw new Error(error.message);
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      if (error) throw new Error(error.message);
+    } catch (e) {
+      logger.error('AuthService', 'resendVerification failed', { error: String(e) });
+      throw new Error(e instanceof Error ? e.message : 'Unknown error during resend verification');
+    }
   }
 
   async resetPassword(email: string): Promise<void> {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${import.meta.env.VITE_PUBLIC_URL ?? window.location.origin}/auth/reset`,
-    });
-    if (error) throw new Error(error.message);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${import.meta.env.VITE_PUBLIC_URL ?? window.location.origin}/auth/reset`,
+      });
+      if (error) throw new Error(error.message);
+    } catch (e) {
+      logger.error('AuthService', 'resetPassword failed', { error: String(e) });
+      throw new Error(e instanceof Error ? e.message : 'Unknown error during password reset');
+    }
   }
 
   async signOut(): Promise<void> {
-    await supabase.auth.signOut();
-    this.currentProfile = null;
-    logger.info('AuthService', 'Signed out');
+    // signOut typically doesn't throw, but for consistency and absolute safety:
+    try {
+      await supabase.auth.signOut();
+      this.currentProfile = null;
+      logger.info('AuthService', 'Signed out');
+    } catch (e) {
+      logger.error('AuthService', 'signOut failed', { error: String(e) });
+      throw new Error(e instanceof Error ? e.message : 'Unknown error during sign out');
+    }
   }
 
   getProfile(): UserProfile | null { return this.currentProfile; }
 
   async isAuthenticated(): Promise<boolean> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return !!session;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return !!session;
+    } catch (e) {
+      logger.error('AuthService', 'isAuthenticated failed', { error: String(e) });
+      // If getSession fails, assume not authenticated
+      return false;
+    }
   }
 
   onAuthStateChange(cb: (profile: UserProfile | null, event: string) => void): () => void {
@@ -238,9 +292,17 @@ class AuthService {
 
     if (!error && data) {
       try {
-        const p = rowToProfile(data as ProfileRow);
-        return p;
-      } catch { /* fall through to rebuild */ }
+        if (isProfileRow(data)) { // Use type guard to validate data before passing to rowToProfile
+          const p = rowToProfile(data); // No assertion needed here
+          return p;
+        } else {
+          logger.warn('AuthService', 'Fetched profile data did not conform to ProfileRow schema, falling back.', { data });
+          // Fall through to rebuild from user object
+        }
+      } catch (e) { 
+        logger.error('AuthService', 'Error mapping profile row, falling back to user object', { error: String(e) });
+        // Fall through to rebuild
+      }
     }
     if (error) logger.warn('AuthService', 'profiles SELECT failed', { error: error.message });
 
