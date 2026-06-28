@@ -8,6 +8,11 @@ import { logger } from '@/core/logger';
 import { monitor } from '@/core/monitor';
 import { supabase } from '@/lib/supabase';
 
+// ── Helper type guard ────────────────────────────
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return typeof val === 'object' && val !== null;
+}
+
 // ── Agent runner ─────────────────────────────────
 async function runAgent(
   id: string, name: string, icon: string, delayMs: number,
@@ -39,12 +44,22 @@ function orchestratorCheck(results: Agent[]): Array<{ agentId: string; reason: s
   const issues: Array<{ agentId: string; reason: string; hint: string }> = [];
   for (const r of results) {
     if (r.status === 'err') issues.push({ agentId: r.id, reason: 'agent_error', hint: r.error ?? '' });
-    if (r.id === 'state' && !(r.output as Record<string,unknown>)?.complete)
-      issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
-    if (r.id === 'security' && !(r.output as Record<string,unknown>)?.passed)
-      issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
-    if (r.id === 'rls' && !(r.output as Record<string,unknown>)?.allPassed)
-      issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
+
+    if (r.id === 'state' && isRecord(r.output)) {
+      if (!('complete' in r.output) || r.output.complete !== true) {
+        issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
+      }
+    }
+    if (r.id === 'security' && isRecord(r.output)) {
+      if (!('passed' in r.output) || r.output.passed !== true) {
+        issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
+      }
+    }
+    if (r.id === 'rls' && isRecord(r.output)) {
+      if (!('allPassed' in r.output) || r.output.allPassed !== true) {
+        issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
+      }
+    }
   }
   return issues;
 }
@@ -82,7 +97,7 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const SQLI = /('|--|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
         const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
@@ -172,11 +187,23 @@ export class BookingService {
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
-    const bookingId = dbRecord?.record?.id ?? '';
+    const bookingId = (isRecord(dbR.output) && isRecord(dbR.output.record) && typeof dbR.output.record.id === 'string')
+      ? dbR.output.record.id
+      : '';
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
-    const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+
+    let synthOut: { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+    if (isRecord(synthR.output) &&
+        typeof synthR.output.allOk === 'boolean' &&
+        typeof synthR.output.confidence === 'number' &&
+        typeof synthR.output.rounds === 'number' &&
+        typeof synthR.output.issuesFixed === 'number') {
+      synthOut = synthR.output as typeof synthOut; // Safe after checks
+    } else {
+      logger.warn('BookingService', 'Synthesiser output unexpected, using defaults', { output: synthR.output });
+      synthOut = { allOk: false, confidence: 0, rounds: 0, issuesFixed: 0 };
+    }
 
     monitor.markEnd('booking.validation');
     done();
