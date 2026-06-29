@@ -8,6 +8,45 @@ import { logger } from '@/core/logger';
 import { monitor } from '@/core/monitor';
 import { supabase } from '@/lib/supabase';
 
+// ── Type Guards and Helpers ──────────────────────
+
+/** Safely checks if an object has a boolean property that is true. */
+function hasBooleanProperty(obj: Record<string, unknown> | undefined, prop: string): boolean {
+  return typeof obj === 'object' && obj !== null && typeof obj[prop] === 'boolean' && obj[prop] === true;
+}
+
+interface DbRecordOutput {
+  record?: { id: string };
+}
+
+/** Type guard for database agent output. */
+function isDbRecordOutput(obj: Record<string, unknown> | undefined): obj is DbRecordOutput {
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+  if (obj.record === undefined) {
+    return true; // record is optional
+  }
+  return typeof obj.record === 'object' && obj.record !== null && typeof (obj.record as { id?: unknown }).id === 'string';
+}
+
+interface SynthOutput {
+  allOk: boolean;
+  confidence: number;
+  rounds: number;
+  issuesFixed: number;
+}
+
+/** Type guard for synthesiser agent output. */
+function isSynthOutput(obj: Record<string, unknown> | undefined): obj is SynthOutput {
+  return typeof obj === 'object' && obj !== null &&
+         typeof obj.allOk === 'boolean' &&
+         typeof obj.confidence === 'number' &&
+         typeof obj.rounds === 'number' &&
+         typeof obj.issuesFixed === 'number';
+}
+
+
 // ── Agent runner ─────────────────────────────────
 async function runAgent(
   id: string, name: string, icon: string, delayMs: number,
@@ -39,11 +78,11 @@ function orchestratorCheck(results: Agent[]): Array<{ agentId: string; reason: s
   const issues: Array<{ agentId: string; reason: string; hint: string }> = [];
   for (const r of results) {
     if (r.status === 'err') issues.push({ agentId: r.id, reason: 'agent_error', hint: r.error ?? '' });
-    if (r.id === 'state' && !(r.output as Record<string,unknown>)?.complete)
+    if (r.id === 'state' && !hasBooleanProperty(r.output, 'complete'))
       issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
-    if (r.id === 'security' && !(r.output as Record<string,unknown>)?.passed)
+    if (r.id === 'security' && !hasBooleanProperty(r.output, 'passed'))
       issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
-    if (r.id === 'rls' && !(r.output as Record<string,unknown>)?.allPassed)
+    if (r.id === 'rls' && !hasBooleanProperty(r.output, 'allPassed'))
       issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
   }
   return issues;
@@ -82,8 +121,8 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
-        const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const SQLI = /('|--|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
         const sqlClean   = !fields.some(v => SQLI.test(v ?? ''));
@@ -172,11 +211,11 @@ export class BookingService {
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
+    const dbRecord = isDbRecordOutput(dbR.output) ? dbR.output : undefined;
     const bookingId = dbRecord?.record?.id ?? '';
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
-    const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+    const synthOut = isSynthOutput(synthR.output) ? synthR.output : { allOk: false, confidence: 0, rounds: 0, issuesFixed: 0 };
 
     monitor.markEnd('booking.validation');
     done();
