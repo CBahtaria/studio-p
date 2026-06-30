@@ -209,7 +209,7 @@ class AuthService {
             name: nameFromMetadata || email.split('@')[0] || 'Member',
             email,
             avatar: avatarUrl,
-            role: (u.app_metadata?.provider === 'editor' ? 'editor' : 'viewer'),
+            role: (u.user_metadata?.role === 'editor' ? 'editor' : 'viewer'),
             provider: providerFromMetadata,
             memberTier: 'bronze',
             visitCount: 0,
