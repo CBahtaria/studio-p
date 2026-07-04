@@ -1,12 +1,14 @@
-// ════════════════════════════════════════════════
-// STUDIO P — BookingService (services/BookingService.ts)
-// Parallel agent orchestration for booking validation
-// ════════════════════════════════════════════════
-
 import type { Booking, Agent, OrchestrationResult, AgentStatus } from '@/types';
 import { logger } from '@/core/logger';
 import { monitor } from '@/core/monitor';
 import { supabase } from '@/lib/supabase';
+
+// ── Agent Output Interfaces ────────────────────────
+interface StateAgentOutput { complete: boolean; missingFields: (string | null)[]; }
+interface SecurityAgentOutput { passed: boolean; riskLevel: 'high' | 'low'; checks: Record<string, boolean>; }
+interface RlsAgentOutput { allPassed: boolean; authenticated: boolean; uidMatch: boolean; serviceKeyExposed: boolean; policiesChecked: string[]; }
+interface DbAgentOutput { table: 'bookings'; record: { id: string }; scheduledAt: string; }
+interface SynthAgentOutput { allOk: boolean; confidence: number; rounds: number; issuesFixed: number; }
 
 // ── Agent runner ─────────────────────────────────
 async function runAgent(
@@ -39,12 +41,19 @@ function orchestratorCheck(results: Agent[]): Array<{ agentId: string; reason: s
   const issues: Array<{ agentId: string; reason: string; hint: string }> = [];
   for (const r of results) {
     if (r.status === 'err') issues.push({ agentId: r.id, reason: 'agent_error', hint: r.error ?? '' });
-    if (r.id === 'state' && !(r.output as Record<string,unknown>)?.complete)
-      issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
-    if (r.id === 'security' && !(r.output as Record<string,unknown>)?.passed)
-      issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
-    if (r.id === 'rls' && !(r.output as Record<string,unknown>)?.allPassed)
-      issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
+    
+    if (r.id === 'state') {
+        const stateOutput = r.output as StateAgentOutput | undefined;
+        if (!stateOutput?.complete) issues.push({ agentId: r.id, reason: 'incomplete_fields', hint: 'Missing booking fields' });
+    }
+    if (r.id === 'security') {
+        const securityOutput = r.output as SecurityAgentOutput | undefined;
+        if (!securityOutput?.passed) issues.push({ agentId: r.id, reason: 'security_fail', hint: 'Security check failed' });
+    }
+    if (r.id === 'rls') {
+        const rlsOutput = r.output as RlsAgentOutput | undefined;
+        if (!rlsOutput?.allPassed) issues.push({ agentId: r.id, reason: 'rls_denied', hint: 'RLS policy rejected' });
+    }
   }
   return issues;
 }
@@ -82,8 +91,8 @@ export class BookingService {
       })),
       runAgent('security', 'Security Auditor', '🔒', 310, () => {
         const XSS  = /<[^>]+>|javascript:|on[a-z]+=|<script/i;
-        const SQLI = /('|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
-        const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const SQLI = /(\'|-{2}|;\s*drop|union\s+select|insert\s+into|1\s*=\s*1)/i;
+        const EMAIL = /^[\S]+@[\S]+\.[\S]{2,}$/;
         const fields = [data.service, data.date, data.time, data.email];
         const xssClean   = !fields.some(v => XSS.test(v ?? ''));
         const sqlClean   = !fields.some(v => SQLI.test(v ?? ''));
@@ -172,11 +181,11 @@ export class BookingService {
 
     const parallelMs = Math.max(...round1.map(a => a.ms ?? 0));
     // DB agent result is authoritative — approved only if Edge Function succeeded
-    const dbRecord = dbR.output as { record?: { id: string } } | undefined;
+    const dbRecord = dbR.output as DbAgentOutput | undefined;
     const bookingId = dbRecord?.record?.id ?? '';
     const dbApproved = dbR.status === 'ok' && !!bookingId;
     const rejectionReason = dbR.status === 'err' ? dbR.error : undefined;
-    const synthOut = synthR.output as { allOk: boolean; confidence: number; rounds: number; issuesFixed: number };
+    const synthOut = synthR.output as SynthAgentOutput;
 
     monitor.markEnd('booking.validation');
     done();
