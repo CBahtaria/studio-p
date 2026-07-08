@@ -30,7 +30,7 @@ interface GalleryItem {
   created_at: string;
 }
 
-const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'%2F%3E%3C%2Ffilter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.06\'%2F%3E%3C%2Fsvg%3E")`;
 
 const HERO_IMGS = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=1200&q=70',
@@ -484,7 +484,7 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
 
         {/* Section nav */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 24, background: 'var(--edit-s)', borderRadius: 8, padding: 3 }}>
-          {([['posts', '✏️ Posts'], ['services', '💈 Services'], ['media', '🖼 Media']] as const).map(([id, label]) => (
+          {[['posts', '✏️ Posts'], ['services', '💈 Services'], ['media', '🖼 Media']] as const).map(([id, label]) => (
             <button key={id} onClick={() => setSection(id)} style={{
               flex: 1, background: section === id ? 'var(--edit-b)' : 'transparent',
               border: 'none', color: section === id ? 'var(--edit-a)' : 'var(--edit-m)',
@@ -641,12 +641,12 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
                             const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
                             if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
                             else logger.error('EditorPortal', 'approve failed', { error: error.message });
-                          }}>✓</button>
+                          }} aria-label="Approve media item">✓</button>
                           <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }} onClick={async () => {
                             const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
                             if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
                             else logger.error('EditorPortal', 'reject failed', { error: error.message });
-                          }}>✗</button>
+                          }} aria-label="Reject media item">✗</button>
                         </div>
                       </div>
                     </div>
