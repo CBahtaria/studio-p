@@ -172,8 +172,13 @@ class AuthService {
   getProfile(): UserProfile | null { return this.currentProfile; }
 
   async isAuthenticated(): Promise<boolean> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return !!session;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return !!session;
+    } catch (error) {
+      logger.error('AuthService', 'Failed to get session in isAuthenticated', { error: String(error) });
+      return false;
+    }
   }
 
   onAuthStateChange(cb: (profile: UserProfile | null, event: string) => void): () => void {
