@@ -88,7 +88,11 @@ export class ProfileService {
 
     const canvas = document.createElement('canvas');
     canvas.width = 80; canvas.height = 80;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      logger.error('ProfileService', 'Failed to get 2D rendering context for canvas. Returning empty avatar.', { name });
+      return '';
+    }
     ctx.fillStyle = '#B8966A';
     ctx.fillRect(0, 0, 80, 80);
     ctx.fillStyle = '#070604';
@@ -112,7 +116,10 @@ export class ProfileService {
 
   // ── Private utils ─────────────────────────────
   private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return /^[^
+@]+@[^
+@]+\.[^
+@]+$/.test(email);
   }
 
   private isValidPhone(phone: string): boolean {

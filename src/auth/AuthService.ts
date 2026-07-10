@@ -172,7 +172,7 @@ class AuthService {
   getProfile(): UserProfile | null { return this.currentProfile; }
 
   async isAuthenticated(): Promise<boolean> {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } } = await supabase.auth.getSession();
     return !!session;
   }
 
@@ -238,8 +238,25 @@ class AuthService {
 
     if (!error && data) {
       try {
-        const p = rowToProfile(data as ProfileRow);
-        return p;
+        // Basic runtime check for essential ProfileRow properties
+        if (
+          typeof data.id === 'string' &&
+          typeof data.name === 'string' &&
+          typeof data.email === 'string' &&
+          typeof data.role === 'string' &&
+          typeof data.provider === 'string' &&
+          typeof data.member_tier === 'string' &&
+          typeof data.visit_count === 'number' &&
+          typeof data.upload_count === 'number' &&
+          typeof data.created_at === 'string' &&
+          typeof data.updated_at === 'string'
+        ) {
+          const p = rowToProfile(data as ProfileRow); // Cast is now more defensible
+          return p;
+        } else {
+          logger.error('AuthService', 'Fetched profile data did not match expected ProfileRow shape', { data });
+          // Fall through to rebuild profile from SupabaseUser
+        }
       } catch { /* fall through to rebuild */ }
     }
     if (error) logger.warn('AuthService', 'profiles SELECT failed', { error: error.message });

@@ -243,7 +243,7 @@ function App() {
 
         const portalPage = profile.role === 'admin' ? 'admin' : profile.role === 'editor' ? 'editor' : 'viewer';
         const isOAuthReturn = window.location.pathname.startsWith('/auth/callback') || window.location.search.includes('code=');
-        const isAtPortalUrl = (['admin', 'editor', 'viewer'] as string[]).includes(window.location.pathname.slice(1));
+        const isAtPortalUrl = (['admin', 'editor', 'viewer']).includes(window.location.pathname.slice(1));
 
         // SIGNED_IN covers email sign-in from '/'; isOAuthReturn covers Google/Apple; isAtPortalUrl covers bookmarked URLs.
         if (event === 'SIGNED_IN' || isOAuthReturn || isAtPortalUrl) {
