@@ -96,6 +96,16 @@ function writeFile({ path: relPath, content, reason }) {
     return `ERROR: file modification limit (${MAX_FILES_MODIFIED}) reached`;
   }
 
+  // Guard: if the model echoed read_file's line-number prefixes back, strip them.
+  // A genuine source file will never start the majority of its lines with "NNN | ".
+  const lineNumberPrefix = /^ *\d+ \| /;
+  const lines = content.split('\n');
+  const prefixedCount = lines.filter(l => lineNumberPrefix.test(l)).length;
+  if (prefixedCount > lines.length * 0.5) {
+    content = lines.map(l => l.replace(lineNumberPrefix, '')).join('\n');
+    console.warn(`  [write_file] WARNING: stripped line-number prefixes from ${norm} (${prefixedCount}/${lines.length} lines were prefixed)`);
+  }
+
   try {
     writeFileSync(abs, content, 'utf8');
     if (already) already.reason = reason ?? already.reason;
@@ -133,7 +143,7 @@ const TOOL_DECLARATIONS = {
     },
     {
       name: 'read_file',
-      description: 'Reads a src/ TypeScript file and returns its content with line numbers prepended.',
+      description: 'Reads a src/ TypeScript file and returns its content with line numbers prepended for reference ONLY. IMPORTANT: when you call write_file, the content MUST NOT include these line numbers — write raw source code only.',
       parameters: {
         type: 'OBJECT',
         properties: {
@@ -144,7 +154,7 @@ const TOOL_DECLARATIONS = {
     },
     {
       name: 'write_file',
-      description: 'Overwrites a src/ TypeScript file. Write the COMPLETE new content — no partial diffs or placeholders.',
+      description: 'Overwrites a src/ TypeScript file. Write the COMPLETE new content — raw source code only, no line numbers, no partial diffs, no placeholders.',
       parameters: {
         type: 'OBJECT',
         properties: {
@@ -201,6 +211,7 @@ const SYSTEM_PROMPT = `You are a TypeScript code quality agent for Studio P, a b
 7. Accessibility: interactive elements missing aria-label with no visible text
 
 ## What NOT to do
+- Do NOT include line numbers in write_file content — read_file adds "NNN | " prefixes for display only; they must never appear in file content you write
 - Do NOT change visible behaviour, UI layout, or design
 - Do NOT rename identifiers unless it is a typo causing a type error
 - Do NOT add new features, imports, or packages

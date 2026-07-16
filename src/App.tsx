@@ -13,6 +13,7 @@ import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { PasswordResetPage } from '@/pages/PasswordResetPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { TermsPage } from '@/pages/TermsPage';
+import { PricelistPage } from '@/pages/PricelistPage';
 import { DevLogPanel } from '@/components/DevLogPanel';
 import { LandingPage } from '@/portals/LandingPage';
 import { AdminPortal } from '@/portals/AdminPortal';
@@ -31,7 +32,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: unknown 
       const msg = this.state.error instanceof Error ? this.state.error.message : String(this.state.error);
       return (
         <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', color: 'var(--parch)', padding: 32, flexDirection: 'column', gap: 16, textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 48, color: 'var(--brass)' }}>P</div>
+          <img src="/logo.jpg" alt="MT Barbershop" style={{ height: 48, width: 'auto', objectFit: 'contain', borderRadius: 4 }} />
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, letterSpacing: '.2em', color: '#f87171' }}>SOMETHING WENT WRONG</div>
           <div style={{ fontSize: 13, color: 'var(--stone)', maxWidth: 400, lineHeight: 1.6 }}>{msg}</div>
           <button onClick={() => window.location.reload()} style={{ background: 'var(--brass)', color: 'var(--ink)', border: 'none', padding: '10px 24px', borderRadius: 6, fontFamily: 'DM Mono, monospace', fontSize: 10, letterSpacing: '.2em', cursor: 'pointer', marginTop: 8 }}>
@@ -80,8 +81,8 @@ function MacBar({ user, onSignIn, onSignOut }: { user: UserProfile | null; onSig
       fontFamily: 'DM Mono, monospace', fontSize: 12,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>P</span>
-        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>Fano's Studio-P</span>
+        <img src="/logo.jpg" alt="MT Barbershop" style={{ height: 22, width: 'auto', objectFit: 'contain', borderRadius: 2 }} />
+        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>MT Barbershop</span>
         {user && (
           <span style={{ fontSize: 8, color: roleColor[user.role] ?? 'var(--brass)', border: '1px solid', padding: '2px 6px', borderRadius: 3, letterSpacing: '.2em' }}>
             {user.role.toUpperCase()}
@@ -191,7 +192,7 @@ function App() {
     if (osInfo.mobile) document.body.classList.add('is-mobile');
     document.body.classList.add('has-dock');
     document.documentElement.style.setProperty('--bar-h', osInfo.chromeHeight + 'px');
-    logger.info('App', 'Studio P initialised', { os: osInfo.os, mobile: osInfo.mobile });
+    logger.info('App', 'MT Barbershop initialised', { os: osInfo.os, mobile: osInfo.mobile });
 
     const params = new URLSearchParams(window.location.search);
     const hash   = new URLSearchParams(window.location.hash.slice(1));
@@ -304,14 +305,15 @@ function App() {
   // Auth-specific pages render without chrome, regardless of app auth state.
   if (window.location.pathname.startsWith('/auth/callback')) return <AuthCallbackPage />;
   if (window.location.pathname.startsWith('/auth/reset'))    return <PasswordResetPage />;
-  if (window.location.pathname === '/privacy') return <PrivacyPage />;
-  if (window.location.pathname === '/terms')   return <TermsPage />;
+  if (window.location.pathname === '/privacy')   return <PrivacyPage />;
+  if (window.location.pathname === '/terms')     return <TermsPage />;
+  if (window.location.pathname === '/pricelist') return <PricelistPage />;
 
   if (loading) {
     const isOAuth = sessionStorage.getItem('oauth_pending') === '1';
     return (
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ink)', flexDirection: 'column', gap: 16 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 60, color: 'var(--brass)', animation: 'pulse 2s ease infinite' }}>P</div>
+        <img src="/logo.jpg" alt="MT Barbershop" style={{ height: 60, width: 'auto', objectFit: 'contain', borderRadius: 4, animation: 'pulse 2s ease infinite' }} />
         {isOAuth && (
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.3em', color: 'var(--stone)' }}>SIGNING IN…</div>
         )}
