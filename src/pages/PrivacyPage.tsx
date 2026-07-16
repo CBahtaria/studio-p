@@ -18,9 +18,9 @@ export function PrivacyPage() {
         </p>
 
         <p style={p}>
-          Fano Barbershop, operated by Mfanomuhle Tsabedze ("we," "our," or "us"), operates the booking platform at studio-p-prod.vercel.app.
+          MT Barbershop, operated by Mfanomuhle Tsabedze ("we," "our," or "us"), operates the booking platform at studio-p-prod.vercel.app.
           This Privacy Policy explains how we collect, use, disclose, and protect your personal information
-          when you use our services. By using Studio P, you agree to the practices described here.
+          when you use our services. By using MT Barbershop, you agree to the practices described here.
         </p>
         <p style={p}>
           If you are a California resident, please also read the <strong style={{ color: 'var(--parch)' }}>CCPA Disclosure</strong> section below.
@@ -32,7 +32,7 @@ export function PrivacyPage() {
         <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
           <li style={li}><strong style={{ color: 'var(--parch)' }}>Account information:</strong> full name, email address, optional phone number, and the profile picture associated with your Google or Apple account (if you sign in via OAuth).</li>
           <li style={li}><strong style={{ color: 'var(--parch)' }}>Booking information:</strong> the service you select, your preferred date and time, and any notes you add to a booking.</li>
-          <li style={li}><strong style={{ color: 'var(--parch)' }}>Photos and videos:</strong> images or short videos you choose to upload to the Studio P gallery.</li>
+          <li style={li}><strong style={{ color: 'var(--parch)' }}>Photos and videos:</strong> images or short videos you choose to upload to the MT Barbershop gallery.</li>
         </ul>
 
         <h3 style={h3}>Information collected automatically</h3>
@@ -47,7 +47,7 @@ export function PrivacyPage() {
           <li style={li}>Authenticate your account and keep your session secure.</li>
           <li style={li}>Process and confirm your booking requests.</li>
           <li style={li}>Send booking confirmations and status updates via WhatsApp or email (if you have provided contact details).</li>
-          <li style={li}>Display approved gallery photos on the Studio P landing page.</li>
+          <li style={li}>Display approved gallery photos on the MT Barbershop landing page.</li>
           <li style={li}>Improve the platform, troubleshoot issues, and ensure security.</li>
           <li style={li}>Comply with applicable laws and regulations.</li>
         </ul>
@@ -58,7 +58,7 @@ export function PrivacyPage() {
 
         <h2 style={h2}>3. Data Sharing</h2>
         <p style={p}>
-          We share your information only with the service providers necessary to operate Studio P:
+          We share your information only with the service providers necessary to operate MT Barbershop:
         </p>
         <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
           <li style={li}><strong style={{ color: 'var(--parch)' }}>Supabase (supabase.com):</strong> database, authentication, and file storage hosted on servers in the EU region. Supabase processes data on our behalf under their Data Processing Agreement.</li>
@@ -68,7 +68,7 @@ export function PrivacyPage() {
         </ul>
         <p style={p}>
           We may disclose your information if required by law, court order, or to protect the rights and
-          safety of Studio P, its users, or the public.
+          safety of MT Barbershop, its users, or the public.
         </p>
 
         <h2 style={h2}>4. Media Retention</h2>
@@ -93,13 +93,13 @@ export function PrivacyPage() {
 
         <h2 style={h2}>6. Cookies and Local Storage</h2>
         <p style={p}>
-          Studio P uses browser local storage to maintain your authentication session. We do not use
+          MT Barbershop uses browser local storage to maintain your authentication session. We do not use
           third-party tracking cookies, advertising cookies, or analytics cookies.
         </p>
 
         <h2 style={h2}>7. Children's Privacy</h2>
         <p style={p}>
-          Studio P is not directed to children under the age of 13. We do not knowingly collect personal
+          MT Barbershop is not directed to children under the age of 13. We do not knowingly collect personal
           information from children under 13. If you believe a child has provided us personal information,
           contact us immediately and we will delete it.
         </p>
@@ -134,7 +134,7 @@ export function PrivacyPage() {
 
         <h3 style={h3}>Business purpose for collection</h3>
         <p style={p}>
-          We collect the above categories to provide and improve Studio P, process bookings, communicate
+          We collect the above categories to provide and improve MT Barbershop, process bookings, communicate
           with you about your bookings, and maintain security. We do not collect sensitive personal
           information beyond what is listed above.
         </p>
@@ -162,17 +162,17 @@ export function PrivacyPage() {
 
         <h2 style={h2}>10. Contact Us</h2>
         <p style={p}>
-          For privacy questions, data requests, or to exercise your rights, contact Studio P via:
+          For privacy questions, data requests, or to exercise your rights, contact MT Barbershop via:
         </p>
         <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
           <li style={li}>WhatsApp: +268 7933 3760</li>
-          <li style={li}>Platform: use the Contact button on the Studio P landing page</li>
+          <li style={li}>Platform: use the Contact button on the MT Barbershop landing page</li>
         </ul>
 
         <h2 style={h2}>11. Changes to This Policy</h2>
         <p style={p}>
           We may update this Privacy Policy from time to time. We will update the "Last updated" date
-          at the top. Continued use of Studio P after changes constitutes acceptance of the revised policy.
+          at the top. Continued use of MT Barbershop after changes constitutes acceptance of the revised policy.
           Material changes will be notified via the platform.
         </p>
 

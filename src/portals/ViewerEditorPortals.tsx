@@ -30,7 +30,7 @@ interface GalleryItem {
   created_at: string;
 }
 
-const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\\' xmlns=\'http://www.w3.org/2000/svg\\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'%2F%3E%3C%2Ffilter%3E%3Crect width=\'100%25\\' height=\'100%25\\' filter=\'url(%23n)\' opacity=\'0.06\'%2F%3E%3C%2Fsvg%3E")`;
 
 const HERO_IMGS = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=1200&q=70',
@@ -80,7 +80,14 @@ export function ViewerPortal({ user, onClose, onSignOut }: ViewerPortalProps) {
         .limit(20)
     ).then(({ data, error }) => {
         if (error) logger.warn('ViewerPortal', 'history fetch failed', { error: error.message });
-        else setHistory((data ?? []) as BookingRecord[]);
+        else setHistory((data ?? []).map(item => ({
+          id: item.id,
+          service: item.service,
+          barber: item.barber,
+          scheduled_at: item.scheduled_at,
+          price_swl: item.price_swl,
+          status: item.status,
+        })));
         setHistLoading(false);
       })
       .catch((e: unknown) => { logger.warn('ViewerPortal', 'history fetch error', { error: String(e) }); setHistLoading(false); });
@@ -398,10 +405,18 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
 
     setPostsLoading(true);
     Promise.resolve(
-      supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(30)
+      supabase.from('announcements').select('id, author_id, author_name, body, tag, likes, created_at').order('created_at', { ascending: false }).limit(30)
     ).then(({ data, error }) => {
       if (error) { logger.warn('EditorPortal', 'posts fetch failed', { error: error.message }); setPostsError(true); }
-      else setPosts((data ?? []) as Post[]);
+      else setPosts((data ?? []).map(item => ({
+        id: item.id,
+        author_id: item.author_id,
+        author_name: item.author_name,
+        body: item.body,
+        tag: item.tag,
+        likes: item.likes,
+        created_at: item.created_at,
+      })));
       setPostsLoading(false);
     }).catch(() => { setPostsError(true); setPostsLoading(false); });
 
@@ -432,7 +447,15 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
       body: newPostText.trim(), tag: newPostTag,
     }).select().single();
     if (!error && data) {
-      setPosts(prev => [data as Post, ...prev]);
+      setPosts(prev => [{
+        id: data.id,
+        author_id: data.author_id,
+        author_name: data.author_name,
+        body: data.body,
+        tag: data.tag,
+        likes: data.likes,
+        created_at: data.created_at,
+      }, ...prev]);
       setNewPostText(''); setNewPostOpen(false);
     } else logger.error('EditorPortal', 'post insert failed', { error: error?.message });
     setPosting(false);
@@ -637,12 +660,12 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 5 }}>
-                          <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }} onClick={async () => {
+                          <button aria-label="Approve media item" className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }} onClick={async () => {
                             const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
                             if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
                             else logger.error('EditorPortal', 'approve failed', { error: error.message });
                           }}>✓</button>
-                          <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }} onClick={async () => {
+                          <button aria-label="Reject media item" className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }} onClick={async () => {
                             const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
                             if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
                             else logger.error('EditorPortal', 'reject failed', { error: error.message });
