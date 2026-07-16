@@ -19,7 +19,7 @@ const FALLBACK_BG = [
 
 const NEWS = [
   { title: 'The Art of the Fade: Why precision matters', desc: 'Master barber P. Dlamini breaks down his signature technique', tag: 'CULTURE' },
-  { title: "Eswatini's next wave: Studio P × Streetwear Collab", desc: 'Limited edition merch drops next week', tag: 'DROPS' },
+  { title: "Eswatini's next wave: MT Barbershop × Streetwear Collab", desc: 'Limited edition merch drops next week', tag: 'DROPS' },
   { title: 'Member spotlight: 1000th cut celebration', desc: 'We honoured our 1000th client with a full ritual', tag: 'COMMUNITY' },
 ];
 
@@ -278,7 +278,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
               <div key={photo.id} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
                 <img
                   src={photo.url}
-                  alt={photo.caption ?? 'Studio P client photo'}
+                  alt={photo.caption ?? 'MT Barbershop client photo'}
                   loading="lazy"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
@@ -328,7 +328,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             Elevate Your<br/>Daily Routine
           </h2>
           <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--stone)', maxWidth: 280, textAlign: 'right', lineHeight: 1.7 }}>
-            Studio P signature grooming essentials — precision in every product.
+            MT Barbershop signature grooming essentials — precision in every product.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, background: 'var(--bord)' }}>
@@ -416,6 +416,11 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
+          <a href="/pricelist" style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.15em', textDecoration: 'none', textTransform: 'uppercase' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--brass)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--stone)')}>
+            Price List
+          </a>
           <a href="/privacy" style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--stone)', letterSpacing: '.15em', textDecoration: 'none', textTransform: 'uppercase' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--brass)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--stone)')}>

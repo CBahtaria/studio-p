@@ -13,6 +13,7 @@ import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { PasswordResetPage } from '@/pages/PasswordResetPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { TermsPage } from '@/pages/TermsPage';
+import { PricelistPage } from '@/pages/PricelistPage';
 import { DevLogPanel } from '@/components/DevLogPanel';
 import { LandingPage } from '@/portals/LandingPage';
 import { AdminPortal } from '@/portals/AdminPortal';
@@ -81,7 +82,7 @@ function MacBar({ user, onSignIn, onSignOut }: { user: UserProfile | null; onSig
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 700, color: 'var(--brass)', lineHeight: 1 }}>P</span>
-        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>Fanu's Studio-P</span>
+        <span style={{ letterSpacing: '.06em', color: 'var(--stone)' }}>MT Barbershop</span>
         {user && (
           <span style={{ fontSize: 8, color: roleColor[user.role] ?? 'var(--brass)', border: '1px solid', padding: '2px 6px', borderRadius: 3, letterSpacing: '.2em' }}>
             {user.role.toUpperCase()}
@@ -191,7 +192,7 @@ function App() {
     if (osInfo.mobile) document.body.classList.add('is-mobile');
     document.body.classList.add('has-dock');
     document.documentElement.style.setProperty('--bar-h', osInfo.chromeHeight + 'px');
-    logger.info('App', 'Studio P initialised', { os: osInfo.os, mobile: osInfo.mobile });
+    logger.info('App', 'MT Barbershop initialised', { os: osInfo.os, mobile: osInfo.mobile });
 
     const params = new URLSearchParams(window.location.search);
     const hash   = new URLSearchParams(window.location.hash.slice(1));
@@ -304,8 +305,9 @@ function App() {
   // Auth-specific pages render without chrome, regardless of app auth state.
   if (window.location.pathname.startsWith('/auth/callback')) return <AuthCallbackPage />;
   if (window.location.pathname.startsWith('/auth/reset'))    return <PasswordResetPage />;
-  if (window.location.pathname === '/privacy') return <PrivacyPage />;
-  if (window.location.pathname === '/terms')   return <TermsPage />;
+  if (window.location.pathname === '/privacy')   return <PrivacyPage />;
+  if (window.location.pathname === '/terms')     return <TermsPage />;
+  if (window.location.pathname === '/pricelist') return <PricelistPage />;
 
   if (loading) {
     const isOAuth = sessionStorage.getItem('oauth_pending') === '1';
