@@ -17,17 +17,17 @@ export function TermsPage() {
         </p>
 
         <p style={p}>
-          Please read these Terms of Service ("Terms") carefully before using Fano Barbershop / Studio-P (the "Service"),
-          operated by Mfanomuhle Tsabedze trading as Fano Barbershop ("we," "our," or "us"). By creating an account or
+          Please read these Terms of Service ("Terms") carefully before using MT Barbershop / MT Barbershop (the "Service"),
+          operated by Mfanomuhle Tsabedze trading as MT Barbershop ("we," "our," or "us"). By creating an account or
           using any part of the Service, you agree to be bound by these Terms.
         </p>
 
         <h2 style={h2}>1. The Service</h2>
         <p style={p}>
-          Studio P is an online platform that allows clients to browse services, submit booking requests,
-          upload photos and short videos to a moderated gallery, and communicate with Studio P staff.
+          MT Barbershop is an online platform that allows clients to browse services, submit booking requests,
+          upload photos and short videos to a moderated gallery, and communicate with MT Barbershop staff.
           Bookings submitted through the platform are requests only — they are not confirmed until
-          a Studio P team member approves them and contacts you.
+          a MT Barbershop team member approves them and contacts you.
         </p>
 
         <h2 style={h2}>2. Eligibility</h2>
@@ -49,16 +49,16 @@ export function TermsPage() {
         <h2 style={h2}>4. Bookings</h2>
         <ul style={{ paddingLeft: 20, marginBottom: 16 }}>
           <li style={li}>Booking requests are subject to staff availability and approval.</li>
-          <li style={li}>Once confirmed, if you need to cancel or reschedule, please contact Studio P at least 2 hours before your appointment via WhatsApp (+268 7933 3760).</li>
+          <li style={li}>Once confirmed, if you need to cancel or reschedule, please contact MT Barbershop at least 2 hours before your appointment via WhatsApp (+268 7933 3760).</li>
           <li style={li}>Repeated no-shows may result in restricted booking access.</li>
           <li style={li}>Prices displayed are in Eswatini Lilangeni (SWL/E) and are subject to change without prior notice on the platform, though booked prices will be honoured.</li>
         </ul>
 
         <h2 style={h2}>5. User Content</h2>
         <p style={p}>
-          You may upload photos and short videos ("User Content") to the Studio P gallery. By uploading
-          User Content, you grant Studio P a non-exclusive, royalty-free, worldwide licence to display
-          that content on the Studio P platform for as long as it is retained (up to 5 days for photos,
+          You may upload photos and short videos ("User Content") to the MT Barbershop gallery. By uploading
+          User Content, you grant MT Barbershop a non-exclusive, royalty-free, worldwide licence to display
+          that content on the MT Barbershop platform for as long as it is retained (up to 5 days for photos,
           7 days for videos).
         </p>
         <p style={p}>You represent and warrant that:</p>
@@ -69,7 +69,7 @@ export function TermsPage() {
           <li style={li}>You have the consent of any identifiable persons depicted in your content.</li>
         </ul>
         <p style={p}>
-          All uploaded content is subject to review and may be rejected or removed by Studio P staff at
+          All uploaded content is subject to review and may be rejected or removed by MT Barbershop staff at
           their discretion. We are not obligated to display any content.
         </p>
 
@@ -81,13 +81,13 @@ export function TermsPage() {
           <li style={li}>Reverse engineer, scrape, or copy the Service.</li>
           <li style={li}>Submit false booking requests or impersonate another person.</li>
           <li style={li}>Upload malicious files or attempt to disrupt the Service.</li>
-          <li style={li}>Harass, threaten, or harm other users or Studio P staff.</li>
+          <li style={li}>Harass, threaten, or harm other users or MT Barbershop staff.</li>
         </ul>
 
         <h2 style={h2}>7. Intellectual Property</h2>
         <p style={p}>
-          All content, design, trademarks, logos, and software comprising the Studio P platform are
-          owned by Studio P or its licensors and are protected by applicable intellectual property laws.
+          All content, design, trademarks, logos, and software comprising the MT Barbershop platform are
+          owned by MT Barbershop or its licensors and are protected by applicable intellectual property laws.
           You may not use, copy, or distribute any part of the platform without express written
           permission.
         </p>
@@ -102,11 +102,11 @@ export function TermsPage() {
 
         <h2 style={h2}>9. Limitation of Liability</h2>
         <p style={p}>
-          To the maximum extent permitted by applicable law, Studio P and its operators shall not be
+          To the maximum extent permitted by applicable law, MT Barbershop and its operators shall not be
           liable for any indirect, incidental, special, consequential, or punitive damages, or loss of
           profits, data, goodwill, or other intangible losses, arising out of or related to your use of
           the Service. Our total liability to you for any claim shall not exceed the amount you paid to
-          Studio P in the 12 months preceding the claim, or E100 (one hundred Eswatini Lilangeni),
+          MT Barbershop in the 12 months preceding the claim, or E100 (one hundred Eswatini Lilangeni),
           whichever is greater.
         </p>
 
@@ -119,7 +119,7 @@ export function TermsPage() {
         <h2 style={h2}>11. Termination</h2>
         <p style={p}>
           We may suspend or terminate your access to the Service at any time, with or without notice, for
-          conduct that we believe violates these Terms or is harmful to other users, Studio P, or third
+          conduct that we believe violates these Terms or is harmful to other users, MT Barbershop, or third
           parties. You may delete your account at any time by contacting us.
         </p>
 
@@ -140,8 +140,8 @@ export function TermsPage() {
 
         <h2 style={h2}>14. Contact</h2>
         <p style={p}>
-          Questions about these Terms? Contact Studio P via WhatsApp at +268 7933 3760 or through the
-          Contact button on the Studio P landing page.
+          Questions about these Terms? Contact MT Barbershop via WhatsApp at +268 7933 3760 or through the
+          Contact button on the MT Barbershop landing page.
         </p>
 
         <div style={{ borderTop: '1px solid var(--bord)', marginTop: 60, paddingTop: 32, display: 'flex', gap: 24 }}>

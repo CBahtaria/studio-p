@@ -52,7 +52,23 @@ interface DailyReport {
   generated_at: string;
 }
 
-const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+interface DailyReportFunctionResult {
+  ok: boolean;
+  reportDate: string;
+  stats: {
+    total: number;
+    confirmed: number;
+    pending: number;
+    cancelled: number;
+    completed: number;
+    revenue: number;
+  };
+  whatsappUrl: string;
+  message: string;
+  appointments: Array<{ id: string; clientName: string; service: string; time: string; status: string; priceSWL: number }>;
+}
+
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.06\'/%3E%3C/svg%3E")`;
 const HERO_IMG = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1400&q=70';
 
 const NAV = [
@@ -144,14 +160,26 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
     Promise.resolve(
       supabase
         .from('daily_reports')
-        .select('*')
+        .select('report_date, total_bookings, confirmed, pending_count, cancelled, completed, total_revenue_swl, appointments, whatsapp_message, generated_at')
         .gte('report_date', new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))
         .order('report_date', { ascending: false })
         .limit(8)
     ).then(({ data }) => {
         if (data && data.length > 0) {
-          setReportHistory(data as DailyReport[]);
-          const today = (data as DailyReport[]).find(r => r.report_date === todayStr);
+          const mappedData: DailyReport[] = data.map(item => ({ // Explicitly map to DailyReport
+            report_date: item.report_date,
+            total_bookings: item.total_bookings,
+            confirmed: item.confirmed,
+            pending_count: item.pending_count,
+            cancelled: item.cancelled,
+            completed: item.completed,
+            total_revenue_swl: item.total_revenue_swl,
+            appointments: item.appointments,
+            whatsapp_message: item.whatsapp_message,
+            generated_at: item.generated_at,
+          }));
+          setReportHistory(mappedData);
+          const today = mappedData.find(r => r.report_date === todayStr);
           if (today) setTodayReport(today);
         }
       })
@@ -206,7 +234,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
         body: { trigger: 'manual', date: dateStr },
       });
       if (error) throw new Error(error.message);
-      const result = data as { ok: boolean; reportDate: string; stats: Record<string, number>; whatsappUrl: string; message: string; appointments: DailyReport['appointments'] };
+      const result = data as DailyReportFunctionResult; // Use new interface
       if (result.ok) {
         const todayStr = new Date().toISOString().slice(0, 10);
         const newReport: DailyReport = {
@@ -289,7 +317,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
 
       {health && (
         <div style={{ padding: '10px 20px', borderTop: '1px solid var(--admin-b)' }}>
-          {[["API", health.api], ["DB", health.db]].map(([l, s]) => (
+          {[['API', health.api], ['DB', health.db]].map(([l, s]) => (
             <div key={l} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: 'DM Mono, monospace', fontSize: 9 }}>
               <span style={{ color: 'var(--admin-m)' }}>{l}</span>
               <span style={{ color: s === 'up' ? '#52E89A' : '#f87171' }}>● {String(s).toUpperCase()}</span>
@@ -330,7 +358,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
       <div style={{ flex: 1, overflowY: 'auto', background: 'var(--admin-bg)', color: 'var(--admin-t)', minWidth: 0 }}>
         {/* Mobile top bar */}
         <div className="admin-mobile-bar">
-          <button onClick={() => setNavOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--admin-m)', fontSize: 18, cursor: 'pointer', minHeight: 'unset', padding: '12px 16px' }}>☰</button>
+          <button onClick={() => setNavOpen(true)} aria-label="Open navigation" style={{ background: 'none', border: 'none', color: 'var(--admin-m)', fontSize: 18, cursor: 'pointer', minHeight: 'unset', padding: '12px 16px' }}>☰</button>
           <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 700, color: 'var(--brass)' }}>P</div>
           <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 10, fontFamily: 'DM Mono, monospace', letterSpacing: '.1em', cursor: 'pointer', minHeight: 'unset', padding: '12px 16px' }}>OUT</button>
         </div>
@@ -609,6 +637,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                                 <select
                                   value={u.role}
                                   onChange={e => changeRole(e.target.value)}
+                                  aria-label="Change user role"
                                   style={{ background: 'var(--admin-s)', color: 'var(--admin-t)', border: '1px solid var(--admin-b)', borderRadius: 4, padding: '2px 6px', fontSize: 10, fontFamily: 'DM Mono, monospace', cursor: 'pointer' }}
                                 >
                                   <option value="viewer">viewer</option>
@@ -751,8 +780,8 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                         <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--port-t)', marginBottom: 2 }}>{k.label}</div>
                         <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, color: 'var(--port-m)', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.val}</div>
                         <div style={{ fontSize: 10, color: 'var(--port-m)', marginTop: 2 }}>{k.note}</div>
-                      </div>
                     </div>
+                  </div>
                   ))}
                 </div>
               </div>
