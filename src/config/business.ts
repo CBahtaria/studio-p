@@ -46,6 +46,46 @@ export const BUSINESS = {
   },
 } as const;
 
+export interface PaymentMethod {
+  id:      string;
+  name:    string;
+  detail:  string;
+  type:    'cash' | 'mobile' | 'card' | 'eft' | 'digital-wallet' | 'qr';
+  note?:   string;
+  icon?:   string;
+}
+
+export const PAYMENT_METHODS: PaymentMethod[] = [
+  // ── Cash ──────────────────────────────────────────────────────────
+  { id: 'cash-szl',   name: 'Cash (SZL)',          detail: 'Eswatini Lilangeni',              type: 'cash',           note: 'Preferred',   icon: '💵' },
+  { id: 'cash-zar',   name: 'Cash (ZAR)',           detail: 'South African Rand — 1:1 parity', type: 'cash',           note: 'Accepted',    icon: '💵' },
+
+  // ── Mobile Money ──────────────────────────────────────────────────
+  { id: 'mtn-momo',   name: 'MTN MoMo',             detail: '+268 7933 3760',                  type: 'mobile',         note: 'Instant',     icon: '📱' },
+  { id: 'emali',      name: 'E-Mali',               detail: 'Eswatini Mobile Money',           type: 'mobile',         note: 'Supported',   icon: '📱' },
+  { id: 'fnb-ewallet',name: 'FNB eWallet',          detail: 'First National Bank mobile wallet',type: 'mobile',        note: 'Supported',   icon: '📱' },
+
+  // ── Digital Wallets ───────────────────────────────────────────────
+  { id: 'apple-pay',  name: 'Apple Pay',            detail: 'Via NFC / contactless',           type: 'digital-wallet', note: 'Tap to Pay',  icon: '' },
+  { id: 'google-pay', name: 'Google Pay',           detail: 'Via NFC / contactless',           type: 'digital-wallet', note: 'Tap to Pay',  icon: '' },
+  { id: 'samsung-pay',name: 'Samsung Pay',          detail: 'Via NFC / contactless',           type: 'digital-wallet', note: 'Supported',   icon: '' },
+
+  // ── Card ──────────────────────────────────────────────────────────
+  { id: 'visa',       name: 'Visa',                 detail: 'Credit / Debit — POS terminal',   type: 'card',           note: 'Swipe / Tap', icon: '💳' },
+  { id: 'mastercard', name: 'Mastercard',           detail: 'Credit / Debit — POS terminal',   type: 'card',           note: 'Swipe / Tap', icon: '💳' },
+
+  // ── QR Code ───────────────────────────────────────────────────────
+  { id: 'snapscan',   name: 'SnapScan',             detail: 'QR code scan',                    type: 'qr',             note: 'Scan',        icon: '🔲' },
+  { id: 'momo-qr',   name: 'MTN MoMo QR',          detail: 'Scan merchant QR',                type: 'qr',             note: 'Scan',        icon: '🔲' },
+
+  // ── Bank EFT ─────────────────────────────────────────────────────
+  { id: 'eft-esw',    name: 'Eswatini Bank EFT',    detail: 'Advance payment — contact us',    type: 'eft',            note: 'Advance',     icon: '🏦' },
+  { id: 'eft-std',    name: 'Standard Bank EFT',    detail: 'Advance payment — contact us',    type: 'eft',            note: 'Advance',     icon: '🏦' },
+  { id: 'eft-fnb',    name: 'FNB Eswatini EFT',     detail: 'Advance payment — contact us',    type: 'eft',            note: 'Advance',     icon: '🏦' },
+  { id: 'eft-ned',    name: 'Nedbank Eswatini EFT', detail: 'Advance payment — contact us',    type: 'eft',            note: 'Advance',     icon: '🏦' },
+  { id: 'eft-absa',   name: 'Absa Eswatini EFT',    detail: 'Advance payment — contact us',    type: 'eft',            note: 'Advance',     icon: '🏦' },
+];
+
 /** Returns today's operating hours for a given day index (0=Sun…6=Sat), or null if closed. */
 export function getTodayHours(dayIndex?: number): { open: string; close: string; label: string } | null {
   const day = dayIndex ?? new Date().getDay();
