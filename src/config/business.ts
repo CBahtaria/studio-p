@@ -1,13 +1,13 @@
 // ════════════════════════════════════════════════
-// STUDIO P — Business Configuration
+// MT BARBERSHOP — Business Configuration
 // Single source of truth for all business details
 // ════════════════════════════════════════════════
 
 export const BUSINESS = {
-  name:        'Fano Barbershop',
-  tradingAs:   "Fanu's Studio-P",
+  name:        'MT Barbershop',
+  tradingAs:   'MT Barbershop',
   owner:       'Mfanomuhle Tsabedze',
-  ownerAlias:  'Fanu',
+  ownerAlias:  'MT',
   address:     'P.O.Box 1741 Mbabane',
   location:    'Kwaluseni, Manzini, Eswatini',
   established: '2020',
@@ -36,7 +36,7 @@ export const BUSINESS = {
   hoursShort:   'Mon–Thu 8–17h · Fri–Sat 8–19h · Closed Sun',
 
   licence: {
-    businessName: 'FANO BARBERSHOP',
+    businessName: 'MT BARBERSHOP',
     issuedTo:     'Mfanomuhle Tsabedze',
     type:         'Informal, Individual Business',
     area:         'Rural area Kwaluseni Manzini',
