@@ -48,8 +48,9 @@ const STATS = [
 
 // ── Types ─────────────────────────────────────────────────────────────
 
-interface ClientPhoto { id: string; url: string; caption: string | null; created_at: string; }
-interface VideoItem   { url: string; }
+interface ClientPhoto  { id: string; url: string; caption: string | null; created_at: string; }
+interface VideoItem    { url: string; }
+interface Announcement { id: string; body: string; tag: string; author_name: string; created_at: string; }
 
 function timeAgo(ts: string): string {
   const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -105,13 +106,15 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
   const [bgVideos, setBgVideos]   = useState<VideoItem[]>([]);
   const [bgIdx, setBgIdx]         = useState(0);
   const [bgVisible, setBgVisible] = useState(true);
-  const [clientPhotos, setClientPhotos] = useState<ClientPhoto[]>([]);
+  const [clientPhotos, setClientPhotos]   = useState<ClientPhoto[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const useVideos = bgVideos.length > 0;
   const bgItems   = useVideos ? bgVideos.map(v => v.url) : bgPhotos;
   const rotateMs  = useVideos ? 12000 : 7000;
 
   // Scroll reveal
+  const revealCulture  = useReveal();
   const revealStory    = useReveal();
   const revealServices = useReveal();
   const revealPillars  = useReveal();
@@ -154,6 +157,17 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       if (error) { logger.warn('LandingPage', 'gallery videos fetch failed', { error: error.message }); return; }
       if (data && data.length > 0) setBgVideos(data.map(d => ({ url: d.url as string })));
     }).catch((e: unknown) => logger.warn('LandingPage', 'gallery videos error', { error: String(e) }));
+
+    Promise.resolve(
+      supabase
+        .from('announcements')
+        .select('id, body, tag, author_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(3)
+    ).then(({ data, error }) => {
+      if (error) { logger.warn('LandingPage', 'announcements fetch failed', { error: error.message }); return; }
+      if (data && data.length > 0) setAnnouncements(data as Announcement[]);
+    }).catch((e: unknown) => logger.warn('LandingPage', 'announcements error', { error: String(e) }));
   }, []);
 
   // Rotate hero background
@@ -489,6 +503,59 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── The Culture — live announcements ────────────────────── */}
+      {announcements.length > 0 && (
+        <div
+          ref={revealCulture}
+          data-reveal
+          style={{ borderTop: '1px solid var(--bord)' }}
+        >
+          <div style={{ maxWidth: 1280, margin: '0 auto', padding: '80px 32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 40, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--stone)', marginBottom: 10, textTransform: 'uppercase' }}>
+                  From the Shop
+                </div>
+                <h2 style={{ fontFamily: 'Anton, sans-serif', fontWeight: 400, fontSize: 'clamp(1.8rem,4vw,3rem)', letterSpacing: '-.02em', textTransform: 'uppercase', lineHeight: .92 }}>
+                  The Culture
+                </h2>
+              </div>
+              <button onClick={onSignIn} style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.15em', textTransform: 'uppercase', background: 'none', border: '1px solid var(--bord2)', color: 'var(--stone)', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', minHeight: 'unset', transition: 'color .15s, border-color .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--brass)'; e.currentTarget.style.borderColor = 'var(--brass)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--stone)'; e.currentTarget.style.borderColor = 'var(--bord2)'; }}
+              >
+                Join as Member →
+              </button>
+            </div>
+            <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+              {announcements.map((a, i) => (
+                <div
+                  key={a.id}
+                  style={{ '--i': i, background: 'var(--ink2)', border: '1px solid var(--bord)', borderRadius: 10, padding: '24px 22px', transition: 'border-color .2s' } as React.CSSProperties}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--brass)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--bord)')}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 7, letterSpacing: '.25em', textTransform: 'uppercase', color: 'var(--brass)', border: '1px solid var(--brass)', borderRadius: 3, padding: '2px 7px' }}>
+                      {a.tag}
+                    </span>
+                    <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--stone)', letterSpacing: '.06em' }}>
+                      {timeAgo(a.created_at)}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 14, color: 'var(--parch)', lineHeight: 1.7, margin: '0 0 14px' }}>
+                    {a.body}
+                  </p>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--stone)', letterSpacing: '.1em' }}>
+                    — {a.author_name}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
