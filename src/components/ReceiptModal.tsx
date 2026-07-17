@@ -145,7 +145,7 @@ export function ReceiptModal({ booking, client, onClose }: Props) {
           {/* ── Header ─────────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <img src="/logo.jpg" alt="MT Barbershop" style={{ height: 48, width: 'auto', objectFit: 'contain', borderRadius: 3 }} />
+              <img src="/mt-logo.png" alt="MT Barbershop" style={{ height: 48, width: 'auto', objectFit: 'contain' }} />
               <div>
                 <div style={{ ...mono, fontSize: 8, letterSpacing: '.3em', color: 'var(--stone)', textTransform: 'uppercase', marginBottom: 3 }}>Service Receipt</div>
                 <div style={{ ...mono, fontSize: 11, letterSpacing: '.12em', color: 'var(--parch)' }}>{BUSINESS.name}</div>
