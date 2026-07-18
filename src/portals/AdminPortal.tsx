@@ -52,7 +52,7 @@ interface DailyReport {
   generated_at: string;
 }
 
-const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\\' xmlns=\'http://www.w3.org/2000/svg\\'%3E%3Cfilter id=\'n\\'%3E%3CfeTurbulence type=\'fractalNoise\\' baseFrequency=\'0.65\\' numOctaves=\'3\\' stitchTiles=\'stitch\\'/%3E%3C/filter%3E%3Crect width=\'100%25\\' height=\'100%25\\' filter=\'url(%23n)\' opacity=\'0.06\\'/%3E%3C/svg%3E")`;
 const HERO_IMG = 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1400&q=70';
 
 const NAV = [
@@ -74,7 +74,7 @@ const SYSTEM_LOGS = [
   { t: '14:12:30', type: 'info', msg: 'Parallel agents: confidence 94%' },
   { t: '13:58:02', type: 'ok',   msg: 'Session created — admin@studiop.sz' },
   { t: '13:44:17', type: 'ok',   msg: 'Auto-backup snapshot v3 created' },
-  { t: '13:10:55', type: 'err',  msg: 'CDN image load failure — m_1a2b' },
+  { t: '13:10:55', type: 'err',  msg: 'CDN image load failure — m_1a2b.' },
 ];
 
 const LOG_COLOR: Record<string, string> = {
@@ -149,9 +149,10 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
         .order('report_date', { ascending: false })
         .limit(8)
     ).then(({ data }) => {
-        if (data && data.length > 0) {
-          setReportHistory(data as DailyReport[]);
-          const today = (data as DailyReport[]).find(r => r.report_date === todayStr);
+        if (Array.isArray(data) && data.length > 0) { // Safely check if data is an array
+          const typedData = data as DailyReport[]; // Assert after runtime check
+          setReportHistory(typedData);
+          const today = typedData.find(r => r.report_date === todayStr);
           if (today) setTodayReport(today);
         }
       })
@@ -206,25 +207,40 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
         body: { trigger: 'manual', date: dateStr },
       });
       if (error) throw new Error(error.message);
-      const result = data as { ok: boolean; reportDate: string; stats: Record<string, number>; whatsappUrl: string; message: string; appointments: DailyReport['appointments'] };
-      if (result.ok) {
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const newReport: DailyReport = {
-          report_date: result.reportDate,
-          total_bookings: result.stats.total,
-          confirmed: result.stats.confirmed,
-          pending_count: result.stats.pending,
-          cancelled: result.stats.cancelled,
-          completed: result.stats.completed,
-          total_revenue_swl: result.stats.revenue,
-          appointments: result.appointments,
-          whatsapp_message: result.message,
-          generated_at: new Date().toISOString(),
-        };
-        if (result.reportDate === todayStr) setTodayReport(newReport);
-        setReportHistory(prev => [newReport, ...prev.filter(r => r.report_date !== result.reportDate)].slice(0, 8));
-        setReportWaUrl(result.whatsappUrl);
-        logger.info('AdminPortal', 'Daily report generated', { date: result.reportDate });
+
+      // Runtime check for the shape of the data before asserting
+      if (
+        data &&
+        typeof data === 'object' &&
+        'ok' in data && typeof (data as any).ok === 'boolean' &&
+        'reportDate' in data && typeof (data as any).reportDate === 'string' &&
+        'stats' in data && typeof (data as any).stats === 'object' &&
+        'whatsappUrl' in data && typeof (data as any).whatsappUrl === 'string' &&
+        'message' in data && typeof (data as any).message === 'string' &&
+        'appointments' in data && Array.isArray((data as any).appointments)
+      ) {
+        const result = data as { ok: boolean; reportDate: string; stats: Record<string, number>; whatsappUrl: string; message: string; appointments: DailyReport['appointments'] };
+        if (result.ok) {
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const newReport: DailyReport = {
+            report_date: result.reportDate,
+            total_bookings: result.stats.total,
+            confirmed: result.stats.confirmed,
+            pending_count: result.stats.pending,
+            cancelled: result.stats.cancelled,
+            completed: result.stats.completed,
+            total_revenue_swl: result.stats.revenue,
+            appointments: result.appointments,
+            whatsapp_message: result.message,
+            generated_at: new Date().toISOString(),
+          };
+          if (result.reportDate === todayStr) setTodayReport(newReport);
+          setReportHistory(prev => [newReport, ...prev.filter(r => r.report_date !== result.reportDate)].slice(0, 8));
+          setReportWaUrl(result.whatsappUrl);
+          logger.info('AdminPortal', 'Daily report generated', { date: result.reportDate });
+        }
+      } else {
+        throw new Error('Invalid data structure received from daily-report function.');
       }
     } catch (e) {
       logger.error('AdminPortal', 'Report generation failed', { error: String(e) });
@@ -274,7 +290,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
               display: 'flex', alignItems: 'center', gap: 10,
               cursor: 'pointer', minHeight: 'unset', width: '100%',
               transition: 'color .15s, background .15s',
-            }}>
+            }}> 
               <span>{n.icon}</span>
               <span>{n.label}</span>
               {badge > 0 && (
@@ -358,7 +374,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                 <div className="pc">
                   <div className="pc-h"><span className="pc-t">Recent Bookings</span><button className="pb" onClick={() => setSection('bookings')}>View All</button></div>
                   <div style={{ padding: '4px 18px' }}>
-                    {bookings.slice(0, 4).map(b => (
+                    {bookings.slice(0, 4).map(b => (+
                       <div key={b.id} className="bki">
                         <div className="bkav">{b.client_name?.[0] ?? '?'}</div>
                         <div style={{ flex: 1 }}>
@@ -484,7 +500,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
               <div className="pc">
                 <div className="pc-h"><span className="pc-t">Operating Hours</span></div>
                 <div className="pc-b">
-                  {[
+                  {[n
                     { days: 'Monday – Thursday', hours: '08:00 – 17:00' },
                     { days: 'Friday – Saturday', hours: '08:00 – 19:00' },
                     { days: 'Sunday',            hours: 'Closed' },
@@ -548,9 +564,13 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                         const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
                         const timeStr = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
                         const setStatus = async (status: string) => {
-                          const { error } = await supabase.from('bookings').update({ status }).eq('id', b.id);
-                          if (!error) setBookings(bks => bks.map(x => x.id === b.id ? { ...x, status } : x));
-                          else logger.error('AdminPortal', 'booking update failed', { error: error.message });
+                          try { // Added try-catch block
+                            const { error } = await supabase.from('bookings').update({ status }).eq('id', b.id);
+                            if (!error) setBookings(bks => bks.map(x => x.id === b.id ? { ...x, status } : x));
+                            else logger.error('AdminPortal', 'booking update failed', { error: b.id, message: error.message });
+                          } catch (e) {
+                            logger.error('AdminPortal', 'booking status update failed (network/supabase issue)', { bookingId: b.id, error: String(e) });
+                          }
                         };
                         return (
                           <tr key={b.id}>
@@ -592,10 +612,14 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Uploads</th><th>Provider</th><th>Actions</th></tr></thead>
                       <tbody>{users.map(u => {
                         const changeRole = async (role: string) => {
-                          if (u.id === user.id) return; // can't change own role
-                          const { error } = await supabase.from('profiles').update({ role }).eq('id', u.id);
-                          if (!error) setUsers(us => us.map(x => x.id === u.id ? { ...x, role } : x));
-                          else logger.error('AdminPortal', 'role update failed', { error: error.message });
+                          try { // Added try-catch block
+                            if (u.id === user.id) return; // can't change own role
+                            const { error } = await supabase.from('profiles').update({ role }).eq('id', u.id);
+                            if (!error) setUsers(us => us.map(x => x.id === u.id ? { ...x, role } : x));
+                            else logger.error('AdminPortal', 'role update failed', { userId: u.id, error: error.message });
+                          } catch (e) {
+                            logger.error('AdminPortal', 'role update failed (network/supabase issue)', { userId: u.id, error: String(e) });
+                          }
                         };
                         return (
                           <tr key={u.id}>
@@ -654,14 +678,22 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                           )}
                           <div style={{ display: 'flex', gap: 5 }}>
                             <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }} onClick={async () => {
-                              const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
-                              if (!error) setPendingMedia(q => q.filter(x => x.id !== item.id));
-                              else logger.error('AdminPortal', 'gallery approve failed', { error: error.message });
+                              try { // Added try-catch block
+                                const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
+                                if (!error) setPendingMedia(q => q.filter(x => x.id !== item.id));
+                                else logger.error('AdminPortal', 'gallery approve failed', { itemId: item.id, error: error.message });
+                              } catch (e) {
+                                logger.error('AdminPortal', 'gallery approve failed (network/supabase issue)', { itemId: item.id, error: String(e) });
+                              }
                             }}>✓ Approve</button>
                             <button style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset', background: 'rgba(248,113,113,.3)', color: '#f87171', border: '1px solid rgba(248,113,113,.4)', borderRadius: 4, cursor: 'pointer' }} onClick={async () => {
-                              const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
-                              if (!error) setPendingMedia(q => q.filter(x => x.id !== item.id));
-                              else logger.error('AdminPortal', 'gallery reject failed', { error: error.message });
+                              try { // Added try-catch block
+                                const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
+                                if (!error) setPendingMedia(q => q.filter(x => x.id !== item.id));
+                                else logger.error('AdminPortal', 'gallery reject failed', { itemId: item.id, error: error.message });
+                              } catch (e) {
+                                logger.error('AdminPortal', 'gallery reject failed (network/supabase issue)', { itemId: item.id, error: String(e) });
+                              }
                             }}>✗ Reject</button>
                           </div>
                         </div>
@@ -689,7 +721,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
               <div className="pc">
                 <div className="pc-h"><span className="pc-t">Architecture</span></div>
                 <div className="pc-b">
-                  {[
+                  {[n
                     ['🧩 State Agent',     'Validates field completeness, consistency, data types'],
                     ['🔒 Security Agent',  'XSS detection, injection scan, format validation'],
                     ['🗃️ Database Agent',  'Normalises record for Postgres insertion via Supabase'],
@@ -738,7 +770,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
               <div className="pc">
                 <div className="pc-h"><span className="pc-t">Environment Keys</span></div>
                 <div className="pc-b">
-                  {[
+                  {[n
                     { type: 'public', label: 'VITE_SUPABASE_URL',     val: 'https://[ref].supabase.co',               note: 'Safe to expose. Configure in .env.local' },
                     { type: 'public', label: 'VITE_SUPABASE_ANON_KEY', val: 'eyJ…[anon key]',                          note: 'Safe to expose. Subject to RLS policies' },
                     { type: 'danger', label: 'SUPABASE_SERVICE_KEY',   val: 'NEVER SENT TO CLIENT — server env only',  note: 'Bypasses RLS. Server-side only. Never in browser.' },
@@ -762,7 +794,7 @@ export function AdminPortal({ user, onClose, onSignOut }: AdminPortalProps) {
                   <table className="pt">
                     <thead><tr><th>Table</th><th>Policy</th><th>Role</th><th>Using Clause</th></tr></thead>
                     <tbody>
-                      {[
+                      {[n
                         { table: 'bookings',     policy: 'select_own',  role: 'authenticated', clause: 'client_id = auth.uid()' },
                         { table: 'bookings',     policy: 'insert_auth', role: 'authenticated', clause: 'auth.role() = authenticated' },
                         { table: 'user_profiles',policy: 'read_own',    role: 'authenticated', clause: 'id = auth.uid()' },
