@@ -30,11 +30,61 @@ interface GalleryItem {
   created_at: string;
 }
 
-const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`;
+interface Post {
+  id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  tag: string;
+  likes: number;
+  created_at: string;
+}
+
+// Type guards for runtime validation
+function isBookingRecord(obj: any): obj is BookingRecord {
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    typeof obj.id === 'string' &&
+    typeof obj.service === 'string' &&
+    typeof obj.barber === 'string' &&
+    typeof obj.scheduled_at === 'string' &&
+    typeof obj.price_swl === 'number' &&
+    typeof obj.status === 'string'
+  );
+}
+
+function isPost(obj: any): obj is Post {
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    typeof obj.id === 'string' &&
+    typeof obj.author_id === 'string' &&
+    typeof obj.author_name === 'string' &&
+    typeof obj.body === 'string' &&
+    typeof obj.tag === 'string' &&
+    typeof obj.likes === 'number' &&
+    typeof obj.created_at === 'string'
+  );
+}
+
+function isGalleryItem(obj: any): obj is GalleryItem {
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    typeof obj.id === 'string' &&
+    typeof obj.url === 'string' &&
+    typeof obj.approved === 'boolean' &&
+    typeof obj.created_at === 'string' &&
+    (obj.caption === null || typeof obj.caption === 'string')
+  );
+}
+
+const GRAIN_BG = `url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\\' xmlns=\'http://www.w3.org/2000/svg\\'%3E%3Cfilter id=\'n\\'%3E%3CfeTurbulence type=\'fractalNoise\\' baseFrequency=\'0.65\\' numOctaves=\'3\\' stitchTiles=\'stitch\\'/%3E%3C/filter%3E%3Crect width=\'100%25\\' height=\'100%25\\' filter=\'url(%23n)\' opacity=\'0.06\\'/%3E%3C/svg%3E")`;
 
 const HERO_IMGS = [
   'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=1200&q=70',
-  'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=1200&q=70',
+  'https://images.unsplash.com/photo-1621605815971-fbc982d665033?w=1200&q=70',
   'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=1200&q=70',
 ];
 
@@ -80,7 +130,10 @@ export function ViewerPortal({ user, onClose, onSignOut }: ViewerPortalProps) {
         .limit(20)
     ).then(({ data, error }) => {
         if (error) logger.warn('ViewerPortal', 'history fetch failed', { error: error.message });
-        else setHistory((data ?? []) as BookingRecord[]);
+        else {
+          const safeData = Array.isArray(data) ? data.filter(isBookingRecord) : [];
+          setHistory(safeData);
+        }
         setHistLoading(false);
       })
       .catch((e: unknown) => { logger.warn('ViewerPortal', 'history fetch error', { error: String(e) }); setHistLoading(false); });
@@ -401,9 +454,12 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
       supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(30)
     ).then(({ data, error }) => {
       if (error) { logger.warn('EditorPortal', 'posts fetch failed', { error: error.message }); setPostsError(true); }
-      else setPosts((data ?? []) as Post[]);
+      else {
+        const safeData = Array.isArray(data) ? data.filter(isPost) : [];
+        setPosts(safeData);
+      }
       setPostsLoading(false);
-    }).catch(() => { setPostsError(true); setPostsLoading(false); });
+    }).catch((e: unknown) => { setPostsError(true); setPostsLoading(false); logger.warn('EditorPortal', 'posts fetch error', { error: String(e) }); });
 
     setMediaLoading(true);
     Promise.resolve(
@@ -415,7 +471,10 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
         .limit(30)
     ).then(({ data, error }) => {
         if (error) logger.warn('EditorPortal', 'media queue fetch failed', { error: error.message });
-        else setMediaQueue((data ?? []) as GalleryItem[]);
+        else {
+          const safeData = Array.isArray(data) ? data.filter(isGalleryItem) : [];
+          setMediaQueue(safeData);
+        }
         setMediaLoading(false);
       })
       .catch((e: unknown) => { logger.warn('EditorPortal', 'media queue error', { error: String(e) }); setMediaLoading(false); });
@@ -427,28 +486,47 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
   const submitPost = async () => {
     if (!newPostText.trim()) return;
     setPosting(true);
-    const { data, error } = await supabase.from('announcements').insert({
-      author_id: user.id, author_name: user.name ?? 'Editor',
-      body: newPostText.trim(), tag: newPostTag,
-    }).select().single();
-    if (!error && data) {
-      setPosts(prev => [data as Post, ...prev]);
-      setNewPostText(''); setNewPostOpen(false);
-    } else logger.error('EditorPortal', 'post insert failed', { error: error?.message });
-    setPosting(false);
+    try {
+      const { data, error } = await supabase.from('announcements').insert({
+        author_id: user.id, author_name: user.name ?? 'Editor',
+        body: newPostText.trim(), tag: newPostTag,
+      }).select().single();
+      if (!error && data) {
+        if (isPost(data)) {
+          setPosts(prev => [data, ...prev]);
+          setNewPostText(''); setNewPostOpen(false);
+        } else {
+          logger.error('EditorPortal', 'Inserted post data has invalid structure', { data });
+        }
+      } else if (error) {
+        logger.error('EditorPortal', 'post insert failed', { error: error.message });
+      }
+    } catch (e) {
+      logger.error('EditorPortal', 'post insert failed (network/supabase issue)', { error: String(e) });
+    } finally {
+      setPosting(false);
+    }
   };
 
   const saveEdit = async (id: string) => {
     if (!editText.trim()) return;
-    const { error } = await supabase.from('announcements').update({ body: editText.trim() }).eq('id', id);
-    if (!error) { setPosts(prev => prev.map(p => p.id === id ? { ...p, body: editText.trim() } : p)); setEditId(null); }
-    else logger.error('EditorPortal', 'post update failed', { error: error.message });
+    try {
+      const { error } = await supabase.from('announcements').update({ body: editText.trim() }).eq('id', id);
+      if (!error) { setPosts(prev => prev.map(p => p.id === id ? { ...p, body: editText.trim() } : p)); setEditId(null); }
+      else logger.error('EditorPortal', 'post update failed', { postId: id, error: error.message });
+    } catch (e) {
+      logger.error('EditorPortal', 'post update failed (network/supabase issue)', { postId: id, error: String(e) });
+    }
   };
 
   const deletePost = async (id: string) => {
-    const { error } = await supabase.from('announcements').delete().eq('id', id);
-    if (!error) setPosts(prev => prev.filter(p => p.id !== id));
-    else logger.error('EditorPortal', 'post delete failed', { error: error.message });
+    try {
+      const { error } = await supabase.from('announcements').delete().eq('id', id);
+      if (!error) setPosts(prev => prev.filter(p => p.id !== id));
+      else logger.error('EditorPortal', 'post delete failed', { postId: id, error: error.message });
+    } catch (e) {
+      logger.error('EditorPortal', 'post delete failed (network/supabase issue)', { postId: id, error: String(e) });
+    }
   };
 
   return (
@@ -484,7 +562,7 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
 
         {/* Section nav */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 24, background: 'var(--edit-s)', borderRadius: 8, padding: 3 }}>
-          {([['posts', '✏️ Posts'], ['services', '💈 Services'], ['media', '🖼 Media']] as const).map(([id, label]) => (
+          {((['posts', '✏️ Posts'], ['services', '💈 Services'], ['media', '🖼 Media']] as const)).map(([id, label]) => (
             <button key={id} onClick={() => setSection(id)} style={{
               flex: 1, background: section === id ? 'var(--edit-b)' : 'transparent',
               border: 'none', color: section === id ? 'var(--edit-a)' : 'var(--edit-m)',
@@ -574,7 +652,7 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                        <div className="bkav" style={{ background: 'var(--edit-b)', flexShrink: 0 }}>{(p.author_name ?? user.name)?.[0] ?? '?'}</div>
+                        <div className="bkav" style={{ background: 'var(--edit-b)', flexShrink: 0 }}>{(p.author_name ?? user.name)?.[0] ?? '?' }</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, color: 'var(--brass)', letterSpacing: '.1em', border: '1px solid var(--brass-d)', padding: '2px 6px', borderRadius: 3 }}>{p.tag}</span>
@@ -638,15 +716,23 @@ export function EditorPortal({ user, onClose, onSignOut }: EditorPortalProps) {
                         )}
                         <div style={{ display: 'flex', gap: 5 }}>
                           <button className="pb" style={{ padding: '4px 8px', fontSize: 8, minHeight: 'unset' }} onClick={async () => {
-                            const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
-                            if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
-                            else logger.error('EditorPortal', 'approve failed', { error: error.message });
-                          }}>✓</button>
+                            try {
+                              const { error } = await supabase.from('gallery_items').update({ approved: true }).eq('id', item.id);
+                              if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
+                              else logger.error('EditorPortal', 'media approve failed', { itemId: item.id, error: error.message });
+                            } catch (e) {
+                              logger.error('EditorPortal', 'media approve failed (network/supabase issue)', { itemId: item.id, error: String(e) });
+                            }
+                          }} aria-label="Approve media item">✓</button>
                           <button className="pb" style={{ padding: '4px 8px', fontSize: 8, background: 'rgba(248,113,113,.3)', color: '#f87171', minHeight: 'unset' }} onClick={async () => {
-                            const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
-                            if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
-                            else logger.error('EditorPortal', 'reject failed', { error: error.message });
-                          }}>✗</button>
+                            try {
+                              const { error } = await supabase.from('gallery_items').delete().eq('id', item.id);
+                              if (!error) setMediaQueue(q => q.filter(x => x.id !== item.id));
+                              else logger.error('EditorPortal', 'media reject failed', { itemId: item.id, error: error.message });
+                            } catch (e) {
+                              logger.error('EditorPortal', 'media reject failed (network/supabase issue)', { itemId: item.id, error: String(e) });
+                            }
+                          }} aria-label="Reject media item">✗</button>
                         </div>
                       </div>
                     </div>
