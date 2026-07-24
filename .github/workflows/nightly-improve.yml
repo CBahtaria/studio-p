@@ -1,3 +1,4 @@
+# SEC-001/002: Supabase keys in test-e2e.mjs need rotation + git-filter-repo purge (human step)
 name: Nightly AI Self-Improvement
 
 # Blue-green loop: Claude reviews src/ nightly, fixes issues, opens a PR to staging.
@@ -13,7 +14,21 @@ permissions:
   pull-requests: write
 
 jobs:
+  secret-scan:
+    name: Secret scanning (gate)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@44c470a5d5c43dc3a43c6cfc2f7dcf87697b5b43  # v2.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   improve:
+    needs: secret-scan
     name: AI Code Improvement
     runs-on: ubuntu-latest
 

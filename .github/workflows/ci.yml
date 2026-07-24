@@ -1,3 +1,4 @@
+# SEC-001/002: Supabase keys in test-e2e.mjs need rotation + git-filter-repo purge (human step)
 name: CI / Blue-Green Deploy
 
 # Blue  = main    → production (studiop.sz)
@@ -9,17 +10,47 @@ on:
   pull_request:
     branches: [main, staging]
 
+permissions:
+  contents: read
+
 jobs:
+  # ── 0. Secret scan (gates all downstream jobs) ──────────────────────────
+  secret-scan:
+    name: Secret scanning (gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@44c470a5d5c43dc3a43c6cfc2f7dcf87697b5b43  # v2.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── 0b. Dependency audit ─────────────────────────────────────────────────
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    needs: secret-scan
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm audit --production --audit-level=high
+
   # ── 1. Validate ─────────────────────────────────────────────────────────
   validate:
     name: Type-check & Build
     runs-on: ubuntu-latest
+    needs: secret-scan
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.4
         with:
           node-version: 20
           cache: npm
@@ -47,10 +78,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.4
         with:
           node-version: 20
           cache: npm
@@ -92,10 +123,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.4
         with:
           node-version: 20
           cache: npm
