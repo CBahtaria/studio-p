@@ -14,6 +14,7 @@ import { ServicesManager } from '@/components/ServicesManager';
 import { useServices } from '@/hooks/useServices';
 import { ReceiptModal } from '@/components/ReceiptModal';
 import type { ReceiptBooking } from '@/components/ReceiptModal';
+import { trackEvent, EVENTS } from '@/lib/analytics';
 
 interface BookingRecord {
   id: string;
@@ -101,6 +102,7 @@ export function ViewerPortal({ user, onClose, onSignOut }: ViewerPortalProps) {
 
   const bookNow = async () => {
     if (!svc || !date || !time) return;
+    trackEvent(EVENTS.BOOKING_START, { service: svc });
     setStep('validating');
     setAgents([]);
     try {
@@ -109,6 +111,7 @@ export function ViewerPortal({ user, onClose, onSignOut }: ViewerPortalProps) {
         ({ agents }) => setAgents(agents ?? [])
       );
       setResult(res);
+      if (res.approved) trackEvent(EVENTS.BOOKING_COMPLETE, { service: svc, bookingId: res.bookingId });
     } catch (e) {
       logger.error('ViewerPortal', 'Booking validation failed', { error: String(e) });
       setResult({ bookingId: '', approved: false, confidence: 0, parallelMs: 0, rounds: 1, agents: [], issuesFixed: 0, reason: 'Unexpected error — please try again.' });
