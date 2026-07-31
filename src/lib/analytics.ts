@@ -1,11 +1,19 @@
 // Analytics event tracking — Plausible + PostHog ready.
 // Enable via VITE_ANALYTICS_ENABLED=true in production environment.
+
+declare global {
+  interface Window {
+    plausible?: (event: string, options?: { props?: Record<string, string | number> }) => void
+    posthog?: { capture: (event: string, props?: Record<string, string | number>) => void }
+  }
+}
+
 const ENABLED = typeof window !== 'undefined' && import.meta.env.VITE_ANALYTICS_ENABLED === 'true'
 
 export function trackEvent(event: string, props?: Record<string, string | number>): void {
   if (!ENABLED) return
-  ;(window as Record<string, unknown> & typeof window).plausible?.(event, { props })
-  ;(window as Record<string, unknown> & typeof window).posthog?.capture(event, props)
+  window.plausible?.(event, { props })
+  window.posthog?.capture(event, props)
 }
 
 export const EVENTS = {
