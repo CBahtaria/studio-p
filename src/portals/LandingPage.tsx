@@ -72,16 +72,103 @@ function shuffle<T>(arr: T[]): T[] {
 // ── Stat counter ──────────────────────────────────────────────────────
 
 function StatCard({ value, label }: { value: string; label: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [displayed, setDisplayed] = useState(value)
+  const animated = useRef(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const match = value.match(/^([\d,]+)/)
+    if (!match) return
+    const num = parseInt(match[1].replace(/,/g, ''), 10)
+    const suffix = value.slice(match[1].length)
+
+    const obs = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || animated.current) return
+      animated.current = true
+      obs.disconnect()
+      const start = Date.now()
+      const duration = 1200
+      const tick = () => {
+        const elapsed = Date.now() - start
+        const progress = Math.min(1, elapsed / duration)
+        const ease = 1 - Math.pow(1 - progress, 3)
+        const current = Math.round(ease * num)
+        setDisplayed(current.toLocaleString() + suffix)
+        if (progress < 1) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [value])
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px', flex: 1, minWidth: 100 }}>
+    <div ref={ref} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px', flex: 1, minWidth: 100 }}>
       <div style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(1.8rem,3.5vw,2.8rem)', fontWeight: 400, color: 'var(--brass)', letterSpacing: '-.02em', lineHeight: 1 }}>
-        {value}
+        {displayed}
       </div>
       <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.3em', textTransform: 'uppercase', color: 'var(--stone)', marginTop: 8 }}>
         {label}
       </div>
     </div>
-  );
+  )
+}
+
+// ── Landing scroll chapter nav ────────────────────────────────────────
+
+const NAV_CHAPTERS = [
+  { id: 'landing-hero',     label: 'INTRO' },
+  { id: 'landing-story',    label: 'STORY' },
+  { id: 'landing-services', label: 'SERVICES' },
+  { id: 'landing-gallery',  label: 'GALLERY' },
+  { id: 'landing-contact',  label: 'CONTACT' },
+]
+
+function LandingScrollNav() {
+  const [active, setActive] = useState('landing-hero')
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      setProgress(max > 0 ? Math.min(1, window.scrollY / max) : 0)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+
+    const obs = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id) }),
+      { threshold: 0.3 }
+    )
+    NAV_CHAPTERS.forEach(({ id }) => {
+      const el = document.getElementById(id)
+      if (el) obs.observe(el)
+    })
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      obs.disconnect()
+    }
+  }, [])
+
+  return (
+    <nav aria-label="Page sections" className="sp-chapter-nav">
+      <div className="sp-chapter-track">
+        <div className="sp-chapter-fill" style={{ height: `${progress * 100}%` }} />
+      </div>
+      {NAV_CHAPTERS.map(({ id, label }) => {
+        const isActive = active === id
+        return (
+          <a key={id} href={`#${id}`} className="sp-chapter-item" aria-current={isActive ? 'true' : undefined}>
+            <span className={`sp-chapter-label${isActive ? ' sp-chapter-label-active' : ''}`}>{label}</span>
+            <div className={`sp-chapter-dot${isActive ? ' sp-chapter-dot-active' : ''}`} />
+          </a>
+        )
+      })}
+    </nav>
+  )
 }
 
 // ── Service tag colours ───────────────────────────────────────────────
@@ -122,6 +209,9 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
   const servicesAnchorRef = useRef<HTMLDivElement>(null);
   const scrollToServices  = () => servicesAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+  const heroBgRef      = useRef<HTMLDivElement>(null);
+  const heroContentRef = useRef<HTMLDivElement>(null);
 
   // Fetch gallery
   useEffect(() => {
@@ -181,11 +271,37 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
     return () => { clearInterval(iid); if (tid) clearTimeout(tid); };
   }, [bgItems.length, rotateMs]);
 
+  // Hero parallax + fade-out
+  useEffect(() => {
+    let ticking = false
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        const y = window.scrollY
+        if (heroBgRef.current) {
+          heroBgRef.current.style.transform = `translateY(${y * 0.28}px)`
+          heroBgRef.current.style.willChange = 'transform'
+        }
+        if (heroContentRef.current) {
+          const vh = window.innerHeight
+          const progress = Math.min(1, y / (vh * 0.6))
+          heroContentRef.current.style.opacity = String(Math.max(0, 1 - progress * 1.4))
+          heroContentRef.current.style.transform = `translateY(${-y * 0.08}px)`
+        }
+        ticking = false
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const todayHours = getTodayHours();
   const isOpen     = !!todayHours;
 
   return (
     <div style={{ animation: 'fadeIn .4s ease' }}>
+      <LandingScrollNav />
 
       {/* ── Ticker ───────────────────────────────────────────────── */}
       <div className="ticker-wrap" style={{ borderTop: 'none' }}>
@@ -199,7 +315,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       </div>
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', minHeight: '94vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      <div id="landing-hero" style={{ position: 'relative', minHeight: '94vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
 
         {/* Background media */}
         {useVideos ? (
@@ -210,7 +326,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: bgVisible ? .28 : 0, transition: 'opacity .5s ease', pointerEvents: 'none' }}
           />
         ) : (
-          <div style={{
+          <div ref={heroBgRef} style={{
             position: 'absolute', inset: 0,
             backgroundImage: `url(${bgItems[bgIdx % bgItems.length]})`,
             backgroundSize: 'cover', backgroundPosition: 'center 30%',
@@ -233,7 +349,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           backgroundSize: '200px 200px', animation: 'grain 4s steps(2) infinite', opacity: .5, pointerEvents: 'none',
         }}/>
 
-        <div style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '80px 32px 60px', width: '100%' }}>
+        <div ref={heroContentRef} style={{ position: 'relative', maxWidth: 1280, margin: '0 auto', padding: '80px 32px 60px', width: '100%' }}>
 
           {/* Kicker */}
           <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.45em', color: 'var(--brass)', marginBottom: 24, textTransform: 'uppercase', animation: 'slideUp .5s .1s both' }}>
@@ -314,6 +430,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
 
       {/* ── Origin Story ─────────────────────────────────────────── */}
       <div
+        id="landing-story"
         ref={revealStory}
         data-reveal
         style={{ maxWidth: 1280, margin: '0 auto', padding: '100px 32px' }}
@@ -371,6 +488,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       {/* ── Services ─────────────────────────────────────────────── */}
       <div ref={servicesAnchorRef} style={{ scrollMarginTop: 48 }}/>
       <div
+        id="landing-services"
         ref={revealServices}
         data-reveal
         style={{ borderTop: '1px solid var(--bord)', borderBottom: '1px solid var(--bord)', background: 'var(--ink2)' }}
@@ -408,6 +526,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                     transition: 'background .2s',
                     cursor: 'default',
                     '--i': i,
+                    animation: 'slideUp .5s both',
+                    animationDelay: `${i * 0.04}s`,
                   } as React.CSSProperties}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.015)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -463,6 +583,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       {/* ── Gallery ──────────────────────────────────────────────── */}
       {clientPhotos.length > 0 && (
         <div
+          id="landing-gallery"
           ref={revealGallery}
           data-reveal
           style={{ maxWidth: 1280, margin: '0 auto', padding: '80px 32px' }}
@@ -619,7 +740,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       </div>
 
       {/* ── Hours & Contact ──────────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid var(--bord)', background: 'var(--ink2)' }}>
+      <div id="landing-contact" style={{ borderTop: '1px solid var(--bord)', background: 'var(--ink2)' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 32px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '40px 48px' }}>
 
