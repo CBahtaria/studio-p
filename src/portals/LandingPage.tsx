@@ -154,20 +154,37 @@ function LandingScrollNav() {
   }, [])
 
   return (
-    <nav aria-label="Page sections" className="sp-chapter-nav">
-      <div className="sp-chapter-track">
-        <div className="sp-chapter-fill" style={{ height: `${progress * 100}%` }} />
+    <>
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0,
+          height: '2px', zIndex: 201, pointerEvents: 'none',
+          background: 'rgba(184,150,106,0.06)',
+        }}
+      >
+        <div style={{
+          height: '100%',
+          width: `${progress * 100}%`,
+          background: 'linear-gradient(to right, var(--brass), var(--gold))',
+          transition: 'width 0.06s linear',
+        }} />
       </div>
-      {NAV_CHAPTERS.map(({ id, label }) => {
-        const isActive = active === id
-        return (
-          <a key={id} href={`#${id}`} className="sp-chapter-item" aria-current={isActive ? 'true' : undefined}>
-            <span className={`sp-chapter-label${isActive ? ' sp-chapter-label-active' : ''}`}>{label}</span>
-            <div className={`sp-chapter-dot${isActive ? ' sp-chapter-dot-active' : ''}`} />
-          </a>
-        )
-      })}
-    </nav>
+      <nav aria-label="Page sections" className="sp-chapter-nav">
+        <div className="sp-chapter-track">
+          <div className="sp-chapter-fill" style={{ height: `${progress * 100}%` }} />
+        </div>
+        {NAV_CHAPTERS.map(({ id, label }) => {
+          const isActive = active === id
+          return (
+            <a key={id} href={`#${id}`} className="sp-chapter-item" aria-current={isActive ? 'true' : undefined}>
+              <span className={`sp-chapter-label${isActive ? ' sp-chapter-label-active' : ''}`}>{label}</span>
+              <div className={`sp-chapter-dot${isActive ? ' sp-chapter-dot-active' : ''}`} />
+            </a>
+          )
+        })}
+      </nav>
+    </>
   )
 }
 
@@ -206,12 +223,14 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
   const revealServices = useReveal();
   const revealPillars  = useReveal();
   const revealGallery  = useReveal();
+  const revealCta      = useReveal();
 
   const servicesAnchorRef = useRef<HTMLDivElement>(null);
   const scrollToServices  = () => servicesAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   const heroBgRef      = useRef<HTMLDivElement>(null);
   const heroContentRef = useRef<HTMLDivElement>(null);
+  const cursorRef      = useRef<HTMLDivElement>(null);
 
   // Fetch gallery
   useEffect(() => {
@@ -296,12 +315,31 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate(${e.clientX - 300}px, ${e.clientY - 300}px)`
+      }
+    }
+    window.addEventListener('mousemove', move, { passive: true })
+    return () => window.removeEventListener('mousemove', move)
+  }, [])
+
   const todayHours = getTodayHours();
   const isOpen     = !!todayHours;
 
   return (
     <div style={{ animation: 'fadeIn .4s ease' }}>
       <LandingScrollNav />
+      <div
+        ref={cursorRef}
+        aria-hidden
+        style={{
+          position: 'fixed', top: -300, left: -300, width: 600, height: 600,
+          background: 'radial-gradient(circle at center, rgba(184,150,106,0.06) 0%, transparent 65%)',
+          pointerEvents: 'none', zIndex: 0, willChange: 'transform',
+        }}
+      />
 
       {/* ── Ticker ───────────────────────────────────────────────── */}
       <div className="ticker-wrap" style={{ borderTop: 'none' }}>
@@ -442,7 +480,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 8, letterSpacing: '.4em', color: 'var(--brass)', marginBottom: 24, textTransform: 'uppercase' }}>
               The Story
             </div>
-            <blockquote style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(1.9rem,3.5vw,3rem)', fontWeight: 600, fontStyle: 'italic', color: 'var(--parch)', lineHeight: 1.2, margin: 0, borderLeft: '2px solid var(--brass)', paddingLeft: 24 }}>
+            <blockquote className="reveal-quote" style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 'clamp(1.9rem,3.5vw,3rem)', fontWeight: 600, fontStyle: 'italic', color: 'var(--parch)', lineHeight: 1.2, margin: 0, borderLeft: '2px solid var(--brass)', paddingLeft: 24 }}>
               "Born in the neighbourhood.<br/>Built for the Kingdom."
             </blockquote>
             <div style={{ marginTop: 32, fontFamily: 'DM Mono, monospace', fontSize: 9, letterSpacing: '.2em', color: 'var(--stone)', textTransform: 'uppercase' }}>
@@ -602,8 +640,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
-            {clientPhotos.slice(0, 9).map((photo) => (
-              <div key={photo.id} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4 }}>
+            {clientPhotos.slice(0, 9).map((photo, i) => (
+              <div key={photo.id} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 4, animation: 'slideUp .55s both', animationDelay: `${0.25 + i * 0.07}s` }}>
                 <img
                   src={photo.url}
                   alt={photo.caption ?? 'MT Barbershop client photo'}
@@ -715,7 +753,7 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       </div>
 
       {/* ── CTA Band ─────────────────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid var(--bord)', padding: '100px 32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <div ref={revealCta} data-reveal style={{ borderTop: '1px solid var(--bord)', padding: '100px 32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         {/* Background accent */}
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 50%, rgba(184,150,106,.04) 0%, transparent 70%)', pointerEvents: 'none' }}/>
         <div style={{ position: 'relative' }}>
