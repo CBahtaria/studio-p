@@ -28,6 +28,25 @@ We respond within 72 hours. Do not publicly disclose until we've had a chance to
 
 ## Known Incidents
 
-**SEC-001 / SEC-002**: A Supabase service_role JWT and anon key were committed in `test-e2e.mjs`.  
-Status: **Pending remediation** — keys must be rotated in Supabase dashboard, then the file  
-must be purged from git history using `git-filter-repo`. Do not merge to main until complete.
+**SEC-001 / SEC-002**: A Supabase service_role JWT and anon key were committed in `test-e2e.mjs`
+(commit `ba2af40`).
+
+**Partial remediation applied (2026-08-02):** Hardcoded values replaced with `process.env.SUPABASE_ANON_KEY`
+and `process.env.SUPABASE_SERVICE_KEY` with a hard fail if env vars are missing. Both copies of the
+file (`test-e2e.mjs` and `docs/studio-p-prod/test-e2e.mjs`) are fixed.
+
+**Remaining manual steps (must be done before treating as resolved):**
+
+1. Rotate both keys in the Supabase dashboard: Project Settings → API → "Reset" service_role key and anon key.
+   The committed values are now dead but rotation is the only guarantee.
+
+2. Purge from git history:
+   ```bash
+   pip install git-filter-repo
+   git filter-repo --invert-paths --path test-e2e.mjs --path docs/studio-p-prod/test-e2e.mjs
+   # Then re-add the clean versions and force-push:
+   git push origin main --force
+   ```
+   Warning: this rewrites history. All forks/clones must be re-cloned after this.
+
+3. After force-push, verify: `git log --all --oneline -- test-e2e.mjs` → no commits with the old content.

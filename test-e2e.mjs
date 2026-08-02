@@ -5,9 +5,13 @@
  */
 import { chromium } from 'playwright';
 
-const SUPABASE_URL  = 'https://djezioftosszvpjlclfl.supabase.co';
-const ANON_KEY      = 'SUPABASE_ANON_KEY_REDACTED';
-const SERVICE_KEY   = 'SUPABASE_SERVICE_KEY_REDACTED';
+const SUPABASE_URL  = process.env.SUPABASE_URL  ?? 'https://djezioftosszvpjlclfl.supabase.co';
+const ANON_KEY      = process.env.SUPABASE_ANON_KEY;
+const SERVICE_KEY   = process.env.SUPABASE_SERVICE_KEY;
+if (!ANON_KEY || !SERVICE_KEY) {
+  console.error('E2E requires SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY env vars. Never hardcode these.');
+  process.exit(1);
+}
 const BASE_URL      = 'http://localhost:5173';
 const TEST_EMAIL    = `e2e-test-${Date.now()}@studiop.test`;
 const TEST_PASS     = 'StudioP_E2E_2026!';
